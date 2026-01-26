@@ -1,0 +1,71 @@
+.dashboard {
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
+.title {
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+/* ===== STAT CARDS ===== */
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.stat-card .ant-statistic-title {
+  color: var(--text-muted);
+}
+
+.stat-card .ant-statistic-content {
+  color: var(--text-main);
+}
+
+.warn {
+  color: #faad14;
+  margin-left: 6px;
+}
+
+/* ===== TABLE CARDS ===== */
+.table-card {
+  margin-top: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+
+.table-card .ant-card-head-title {
+  color: var(--text-main);
+}
+
+/* ===== TABLE ===== */
+.data-table .ant-table {
+  background: var(--bg-card);
+  color: var(--text-main);
+}
+
+.data-table .ant-table-thead > tr > th {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table .ant-table-tbody > tr > td {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* hover */
+.data-table .ant-table-tbody > tr:hover > td {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .data-table .ant-table-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.06);
+}
