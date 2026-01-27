@@ -4,6 +4,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Rivers from "./pages/Rivers/Rivers";
 import Stations from "./pages/Stations/Stations";
+import Hubs from "./pages/Hubs/Hubs";
 
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="rivers" element={<Rivers />} />
         <Route path="stations" element={<Stations />} />
+        <Route path="hubs" element={<Hubs />} />
        
       </Route>
     </Routes>

@@ -7,6 +7,7 @@ import {
   Modal,
   Form,
   Input,
+  Select,
   Tag,
   message,
 } from "antd";
@@ -14,39 +15,42 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  DeploymentUnitOutlined,
+  ApartmentOutlined,
 } from "@ant-design/icons";
-import "./Rivers.css";
+import "./Hubs.css";
 
-const initialRivers = [
+const initialHubs = [
   {
     key: 1,
-    name: "Mekong River",
-    code: "R-MEKONG",
-    length: "4350 km",
-    regions: "Vietnam, Laos, Cambodia",
-    status: "monitored",
+    name: "Can Tho Hub",
+    code: "HUB-CT",
+    location: "Can Tho City",
+    manager: "Nguyen Van A",
+    stations: 5,
+    status: "active",
   },
   {
     key: 2,
-    name: "Dong Nai River",
-    code: "R-DN",
-    length: "586 km",
-    regions: "Dong Nai, HCMC",
-    status: "monitored",
+    name: "Dong Nai Hub",
+    code: "HUB-DN",
+    location: "Dong Nai Province",
+    manager: "Tran Thi B",
+    stations: 7,
+    status: "active",
   },
   {
     key: 3,
-    name: "Saigon River",
-    code: "R-SG",
-    length: "256 km",
-    regions: "HCMC",
+    name: "Tien Giang Hub",
+    code: "HUB-TG",
+    location: "Tien Giang Province",
+    manager: "Le Van C",
+    stations: 4,
     status: "inactive",
   },
 ];
 
-export default function Rivers() {
-  const [data, setData] = useState(initialRivers);
+export default function Hubs() {
+  const [data, setData] = useState(initialHubs);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
@@ -65,13 +69,17 @@ export default function Rivers() {
             i.key === editing.key ? { ...i, ...values } : i
           )
         );
-        message.success("River updated successfully");
+        message.success("Hub updated successfully");
       } else {
         setData([
           ...data,
-          { key: Date.now(), status: "monitored", ...values },
+          {
+            key: Date.now(),
+            stations: Math.floor(Math.random() * 5) + 2,
+            ...values,
+          },
         ]);
-        message.success("River added successfully");
+        message.success("Hub added successfully");
       }
       setOpen(false);
       setEditing(null);
@@ -81,35 +89,37 @@ export default function Rivers() {
 
   const handleDelete = (record) => {
     Modal.confirm({
-      title: "Delete river?",
+      title: "Delete hub?",
+      content: "All linked stations will be affected.",
       okType: "danger",
       onOk: () => {
         setData(data.filter((i) => i.key !== record.key));
-        message.success("River deleted successfully");
+        message.success("Hub deleted successfully");
       },
     });
   };
 
   const columns = [
     {
-      title: "RIVER",
+      title: "HUB",
       dataIndex: "name",
       render: (t) => (
         <Space>
-          <DeploymentUnitOutlined />
+          <ApartmentOutlined />
           <b>{t}</b>
         </Space>
       ),
     },
     { title: "CODE", dataIndex: "code" },
-    { title: "LENGTH", dataIndex: "length" },
-    { title: "REGIONS", dataIndex: "regions" },
+    { title: "LOCATION", dataIndex: "location" },
+    { title: "MANAGER", dataIndex: "manager" },
+    { title: "STATIONS", dataIndex: "stations" },
     {
       title: "STATUS",
       dataIndex: "status",
       render: (s) =>
-        s === "monitored" ? (
-          <Tag color="blue">monitored</Tag>
+        s === "active" ? (
+          <Tag color="green">active</Tag>
         ) : (
           <Tag color="red">inactive</Tag>
         ),
@@ -133,41 +143,47 @@ export default function Rivers() {
   ];
 
   return (
-    <div className="rivers-page">
-      <h1>Rivers</h1>
+    <div className="hubs-page">
+      <h1>Hubs</h1>
       <Card
-        title="All Rivers"
+        title="All Hubs"
         extra={
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => openModal()}
           >
-            Add River
+            Add Hub
           </Button>
         }
       >
-        <Table columns={columns} dataSource={data} pagination={false} />
+        <Table dataSource={data} columns={columns} pagination={false} />
       </Card>
 
       <Modal
         open={open}
-        title={editing ? "Edit River" : "Add River"}
+        title={editing ? "Edit Hub" : "Add Hub"}
         onOk={handleOk}
         onCancel={() => setOpen(false)}
       >
         <Form layout="vertical" form={form}>
-          <Form.Item name="name" label="River Name" rules={[{ required: true }]}>
+          <Form.Item name="name" label="Hub Name" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
           <Form.Item name="code" label="Code">
             <Input />
           </Form.Item>
-          <Form.Item name="length" label="Length">
+          <Form.Item name="location" label="Location">
             <Input />
           </Form.Item>
-          <Form.Item name="regions" label="Regions">
+          <Form.Item name="manager" label="Manager">
             <Input />
+          </Form.Item>
+          <Form.Item name="status" label="Status">
+            <Select>
+              <Select.Option value="active">Active</Select.Option>
+              <Select.Option value="inactive">Inactive</Select.Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>
