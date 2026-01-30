@@ -4,6 +4,10 @@ import {
   EnvironmentOutlined,
   ApartmentOutlined,
   ClusterOutlined,
+  ThunderboltOutlined,
+  LineChartOutlined,
+  DatabaseOutlined,
+  InboxOutlined,
 } from "@ant-design/icons";
 import { NavLink } from "react-router-dom";
 import "./Sidebar.css";
@@ -33,6 +37,18 @@ export default function Sidebar() {
         </Menu.Item>
         <Menu.Item key="/admin/hubs" icon={<ClusterOutlined />}>
           <NavLink to="/admin/hubs">Hubs</NavLink>
+        </Menu.Item>
+        <Menu.Item key="/admin/sensors" icon={<ThunderboltOutlined />}>
+          <NavLink to="/admin/sensors">Sensors</NavLink>
+        </Menu.Item>
+        <Menu.Item key="/admin/parameters" icon={<LineChartOutlined />}>
+          <NavLink to="/admin/parameters">Parameters</NavLink>
+        </Menu.Item>
+        <Menu.Item key="/admin/observations" icon={<DatabaseOutlined />}>
+          <NavLink to="/admin/observations">Observations</NavLink>
+        </Menu.Item>
+        <Menu.Item key="/admin/data-packages" icon={<InboxOutlined />}>
+          <NavLink to="/admin/data-packages">Data Packages</NavLink>
         </Menu.Item>
       </Menu>
     </Sider>
