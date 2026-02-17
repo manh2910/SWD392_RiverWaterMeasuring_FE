@@ -1,0 +1,51 @@
+.stations-page {
+  padding: 24px;
+}
+
+.stations-page h1 {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.subtitle {
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+/* Station name */
+.station-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.station-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #e0ecff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.time {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* AntD tuning */
+.ant-card {
+  border-radius: 14px;
+}
+
+.ant-table-thead th {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.ant-modal-content {
+  border-radius: 16px;
+}

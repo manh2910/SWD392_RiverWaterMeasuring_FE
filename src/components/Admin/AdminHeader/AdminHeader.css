@@ -1,0 +1,28 @@
+.admin-header {
+  background: #ffffff !important;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.search {
+  width: 420px;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.icon {
+  font-size: 18px;
+  color: #111;
+}
+
+.username {
+  color: #111;
+  font-weight: 500;
+}
