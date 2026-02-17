@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import AdminLayout from "./layouts/AdminLayout";
+
 import Dashboard from "./pages/Admin/Dashboard/Dashboard";
 import Rivers from "./pages/Admin/Rivers/Rivers";
 import Stations from "./pages/Admin/Stations/Stations";
@@ -13,10 +14,14 @@ import WaterAnalytics from "./pages/User/WaterAnalytics/WaterAnalytics";
 
 
 
+
+
+
 function App() {
   return (
     <Routes>
       {/* ADMIN */}
+
        <Route path="/" element={<HomePage/>} />
         <Route path="/analytics" element={<WaterAnalytics/>} />
 
@@ -24,6 +29,7 @@ function App() {
 
 
       {/* ADMIN */}
+
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
         <Route path="rivers" element={<Rivers />} />

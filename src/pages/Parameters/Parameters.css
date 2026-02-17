@@ -1,0 +1,43 @@
+.parameters-page h1 {
+  margin-bottom: 4px;
+}
+
+.parameters-page .page-desc {
+  color: #6b7280;
+  margin-bottom: 16px;
+}
+
+.parameters-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.parameters-search {
+  max-width: 320px;
+}
+
+.parameters-page-size {
+  min-width: 120px;
+}
+
+.param-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.param-icon {
+  width: 20px;
+  height: 20px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.parameters-table .param-unit-badge {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 6px;
+}
