@@ -1,11 +1,12 @@
-import { Layout, Menu, Badge, Avatar, Dropdown } from "antd";
+import { Layout, Menu, Badge, Avatar, Dropdown, Button } from "antd";
 import {
   HomeOutlined,
   BarChartOutlined,
   EnvironmentOutlined,
   SettingOutlined,
   BellOutlined,
-  UserOutlined
+  UserOutlined,
+  ClockCircleOutlined
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./Header.css";
@@ -15,6 +16,8 @@ const { Header } = Layout;
 export default function AppHeader() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const loggedInUser = localStorage.getItem("loggedInUser");
 
   const items = [
     {
@@ -40,13 +43,26 @@ export default function AppHeader() {
       icon: <SettingOutlined />,
       label: "Settings",
       onClick: () => navigate("/settings")
+    },
+    {
+      key: "/history",
+      icon: <ClockCircleOutlined />,
+      label: "History",
+      onClick: () => navigate("/history")
     }
   ];
 
   const userMenu = {
     items: [
       { key: "profile", label: "Profile" },
-      { key: "logout", label: "Logout" }
+      {
+        key: "logout",
+        label: "Logout",
+        onClick: () => {
+          localStorage.removeItem("loggedInUser");
+          navigate("/login");
+        }
+      }
     ]
   };
 
@@ -68,9 +84,15 @@ export default function AppHeader() {
           <BellOutlined className="header-icon" />
         </Badge>
 
-        <Dropdown menu={userMenu} placement="bottomRight">
-          <Avatar icon={<UserOutlined />} className="avatar" />
-        </Dropdown>
+        {loggedInUser ? (
+          <Dropdown menu={userMenu} placement="bottomRight">
+            <Avatar icon={<UserOutlined />} className="avatar" />
+          </Dropdown>
+        ) : (
+          <Button type="link" onClick={() => navigate("/login")}>
+            Login
+          </Button>
+        )}
       </div>
     </Header>
   );

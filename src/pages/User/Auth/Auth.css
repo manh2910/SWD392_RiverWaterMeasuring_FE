@@ -1,0 +1,9 @@
+.auth-container {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 40px 0;
+}
+
+.auth-form {
+  width: 100%;
+}

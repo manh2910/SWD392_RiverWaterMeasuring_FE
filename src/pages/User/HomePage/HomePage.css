@@ -43,6 +43,12 @@ body.dark {
   margin-bottom: 25px;
 }
 
+.welcome-text {
+  font-size: 1.1rem;
+  color: #2f855a;
+  margin-bottom: 8px;
+}
+
 .hero-buttons button {
   margin: 0 10px;
 }

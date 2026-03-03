@@ -13,19 +13,21 @@ import HomePage from "./pages/User/HomePage/HomePage";
 import WaterAnalytics from "./pages/User/WaterAnalytics/WaterAnalytics";
 import RiverMap from "./pages/User/RiverMap/RiverMap";
 import WaterQualityMetrics from "./pages/User/WaterQualityMetrics/WaterQualityMetrics";
+import Auth from "./pages/User/Auth/Auth";
+import AlertSettings from "./pages/User/AlertSettings/AlertSettings";
+import History from "./pages/User/History/History";
 
 function App() {
   return (
     <Routes>
-      {/* DEFAULT REDIRECT TO ADMIN */}
-      <Route path="/" element={<Navigate to="/admin" replace />} />
-
-      {/* ADMIN */}
-
+      {/* USER PAGES */}
       <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<Auth />} />
       <Route path="/analytics" element={<WaterAnalytics />} />
       <Route path="/map" element={<RiverMap />} />
       <Route path="/quality" element={<WaterQualityMetrics />} />
+      <Route path="/settings" element={<AlertSettings />} />
+      <Route path="/history" element={<History />} />
 
 
 

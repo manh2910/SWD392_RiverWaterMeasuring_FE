@@ -9,6 +9,7 @@ import {
   Button,
   Divider
 } from "antd";
+import { useNavigate } from "react-router-dom";
 import {
   EnvironmentOutlined,
   WarningOutlined,
@@ -68,6 +69,9 @@ const alerts = [
 ];
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const loggedInUser = localStorage.getItem("loggedInUser");
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
       {/* HEADER LUÔN Ở NGOÀI */}
@@ -83,10 +87,18 @@ export default function HomePage() {
         {/* HERO */}
         <div className="hero-section">
           <h1>🌊 River Monitoring System</h1>
+          {loggedInUser && (
+            <p className="welcome-text">Welcome back, {loggedInUser}!</p>
+          )}
           <p>
             Real-time monitoring of river levels, environmental data and
             water quality indicators.
           </p>
+          {!loggedInUser && (
+            <Button type="primary" onClick={() => navigate("/login") }>
+              Sign in / Register
+            </Button>
+          )}
         </div>
 
         <Divider />
