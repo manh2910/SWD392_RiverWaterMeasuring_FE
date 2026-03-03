@@ -1,14 +1,42 @@
 .admin-header {
   background: #ffffff !important;
-  padding: 0 24px;
+  padding: 12px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.search {
-  width: 420px;
+.admin-header .ant-input-wrapper {
+  width: 100%;
+  max-width: 420px;
+}
+
+.admin-header .ant-input-affix-wrapper {
+  border-radius: 6px;
+  border: 1px solid #d9d9d9;
+  background: #fafafa;
+  transition: all 0.3s;
+}
+
+.admin-header .ant-input-affix-wrapper:hover {
+  border-color: #40a9ff;
+  background: #ffffff;
+}
+
+.admin-header .ant-input-affix-wrapper-focused {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.admin-header .ant-input {
+  color: #111;
+  font-size: 14px;
+}
+
+.admin-header .ant-input::placeholder {
+  color: #bfbfbf;
 }
 
 .right {
@@ -20,9 +48,45 @@
 .icon {
   font-size: 18px;
   color: #111;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.icon:hover {
+  color: #1890ff;
+  transform: scale(1.1);
 }
 
 .username {
   color: #111;
   font-weight: 500;
+  font-size: 14px;
+  min-width: 60px;
 }
+
+.admin-header .ant-avatar {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.admin-header .ant-avatar:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .admin-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .admin-header .ant-input-wrapper {
+    max-width: 100%;
+    min-width: 200px;
+  }
+
+  .username {
+    display: none;
+  }
+}
+

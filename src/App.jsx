@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import AdminLayout from "./layouts/AdminLayout";
 
 import Dashboard from "./pages/Dashboard/Dashboard";
@@ -14,6 +14,9 @@ import DataPackages from "./pages/DataPackages/DataPackages";
 function App() {
   return (
     <Routes>
+      {/* DEFAULT REDIRECT TO ADMIN */}
+      <Route path="/" element={<Navigate to="/admin" replace />} />
+
       {/* ADMIN */}
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Dashboard />} />
@@ -27,6 +30,9 @@ function App() {
         <Route path="data-packages" element={<DataPackages />} />
 
       </Route>
+
+      {/* 404 */}
+      <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );
 }

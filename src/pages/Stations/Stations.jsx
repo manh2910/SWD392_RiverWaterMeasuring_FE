@@ -10,13 +10,15 @@ import {
   Input,
   Select,
   message,
+  Row,
+  Col,
+  Statistic,
 } from "antd";
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  EyeOutlined,
-  EnvironmentOutlined,
+  ApartmentOutlined,
 } from "@ant-design/icons";
 import "./Stations.css";
 
@@ -24,57 +26,47 @@ const initialData = [
   {
     key: 1,
     name: "Bien Hoa Station",
-    code: "BH-001",
-    location: "Dong Nai Province",
+    code: "ST-BH-01",
+    location: "Bien Hoa, Dong Nai",
     river: "Dong Nai River",
-    coord: "10.9561, 106.8564",
     sensors: 8,
-    status: "online",
-    time: "2 minutes ago",
+    status: "active",
   },
   {
     key: 2,
     name: "Can Tho Station A",
-    code: "CT-A01",
+    code: "ST-CT-A01",
     location: "Can Tho City",
-    river: "Hau River",
-    coord: "10.0452, 105.7469",
+    river: "Mekong River",
     sensors: 12,
-    status: "online",
-    time: "5 minutes ago",
+    status: "active",
   },
   {
     key: 3,
     name: "Can Tho Station B",
-    code: "CT-B02",
+    code: "ST-CT-B02",
     location: "Can Tho City",
-    river: "Hau River",
-    coord: "10.0350, 105.7700",
+    river: "Mekong River",
     sensors: 9,
-    status: "maintenance",
-    time: "30 minutes ago",
+    status: "active",
   },
   {
     key: 4,
     name: "My Tho Station",
-    code: "MT-002",
-    location: "Tien Giang Province",
+    code: "ST-MT-002",
+    location: "My Tho, Tien Giang",
     river: "Tien River",
-    coord: "10.3500, 106.3600",
     sensors: 6,
-    status: "maintenance",
-    time: "1 hour ago",
+    status: "active",
   },
   {
     key: 5,
-    name: "Long An Station",
-    code: "LA-003",
-    location: "Long An Province",
-    river: "Vam Co River",
-    coord: "10.5353, 106.4067",
-    sensors: 7,
+    name: "Vung Tau Coastal",
+    code: "ST-VT-003",
+    location: "Vung Tau",
+    river: "Saigon River",
+    sensors: 4,
     status: "offline",
-    time: "3 hours ago",
   },
 ];
 
@@ -91,38 +83,30 @@ export default function Stations() {
   };
 
   const handleOk = () => {
-    form
-      .validateFields()
-      .then((values) => {
-        if (editing) {
-          setData(
-            data.map((item) =>
-              item.key === editing.key
-                ? { ...item, ...values }
-                : item
-            )
-          );
-          message.success("Station updated successfully");
-        } else {
-          setData([
-            ...data,
-            {
-              key: Date.now(),
-              time: "Just now",
-              sensors: Math.floor(Math.random() * 10) + 3,
-              ...values,
-            },
-          ]);
-          message.success("Station added successfully");
-        }
+    form.validateFields().then((values) => {
+      if (editing) {
+        setData(
+          data.map((item) =>
+            item.key === editing.key ? { ...item, ...values } : item
+          )
+        );
+        message.success("Station updated successfully");
+      } else {
+        setData([
+          ...data,
+          {
+            key: Date.now(),
+            status: "active",
+            ...values,
+          },
+        ]);
+        message.success("Station added successfully");
+      }
 
-        setOpen(false);
-        setEditing(null);
-        form.resetFields();
-      })
-      .catch(() => {
-        message.error("Please fill in required fields");
-      });
+      setOpen(false);
+      setEditing(null);
+      form.resetFields();
+    });
   };
 
   const handleDelete = (record) => {
@@ -139,49 +123,68 @@ export default function Stations() {
 
   const columns = [
     {
-      title: "STATION",
+      title: "Station",
       dataIndex: "name",
-      render: (text, record) => (
-        <div className="station-name">
-          <div className="station-icon">
-            <EnvironmentOutlined />
-          </div>
-          <div>
-            <div>{text}</div>
-            <span className="time">{record.time}</span>
-          </div>
-        </div>
+      key: "name",
+      render: (text) => (
+        <Space>
+          <ApartmentOutlined style={{ color: "#1890ff" }} />
+          <span className="fw-600">{text}</span>
+        </Space>
       ),
     },
-    { title: "CODE", dataIndex: "code" },
-    { title: "LOCATION", dataIndex: "location" },
-    { title: "RIVER", dataIndex: "river" },
-    { title: "COORDINATES", dataIndex: "coord" },
     {
-      title: "SENSORS",
+      title: "Code",
+      dataIndex: "code",
+      key: "code",
+    },
+    {
+      title: "Location",
+      dataIndex: "location",
+      key: "location",
+    },
+    {
+      title: "River",
+      dataIndex: "river",
+      key: "river",
+    },
+    {
+      title: "Sensors",
       dataIndex: "sensors",
-      render: (v) => <b>{v}</b>,
+      key: "sensors",
+      render: (count) => (
+        <span className="fw-600" style={{ color: "#1890ff" }}>
+          {count}
+        </span>
+      ),
     },
     {
-      title: "STATUS",
+      title: "Status",
       dataIndex: "status",
-      render: (s) => {
-        if (s === "online") return <Tag color="green">online</Tag>;
-        if (s === "maintenance")
-          return <Tag color="gold">maintenance</Tag>;
-        return <Tag color="red">offline</Tag>;
-      },
+      key: "status",
+      render: (status) =>
+        status === "active" ? (
+          <Tag color="green">ACTIVE</Tag>
+        ) : (
+          <Tag color="red">OFFLINE</Tag>
+        ),
     },
     {
-      title: "ACTIONS",
+      title: "Actions",
+      key: "actions",
+      fixed: "right",
+      width: 100,
       render: (_, record) => (
-        <Space>
-          <Button icon={<EyeOutlined />} />
+        <Space size="small">
           <Button
+            type="text"
+            size="small"
             icon={<EditOutlined />}
             onClick={() => openModal(record)}
           />
           <Button
+            type="text"
+            size="small"
             danger
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record)}
@@ -193,13 +196,54 @@ export default function Stations() {
 
   return (
     <div className="stations-page">
-      <h1>Monitoring Stations</h1>
-      <p className="subtitle">
-        Manage water monitoring stations across the river network
-      </p>
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Total Stations"
+              value={data.length}
+              prefix={<ApartmentOutlined />}
+              valueStyle={{ color: "#1890ff", fontSize: "28px" }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Active"
+              value={data.filter((s) => s.status === "active").length}
+              valueStyle={{ color: "#52c41a", fontSize: "28px" }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Total Sensors"
+              value={data.reduce((sum, s) => sum + s.sensors, 0)}
+              valueStyle={{ color: "#722ed1", fontSize: "28px" }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Offline"
+              value={data.filter((s) => s.status === "offline").length}
+              valueStyle={{ color: "#f5222d", fontSize: "28px" }}
+            />
+          </Card>
+        </Col>
+      </Row>
 
       <Card
-        title="All Stations"
+        className="stations-table-card"
+        title={
+          <span>
+            <ApartmentOutlined style={{ marginRight: 8, color: "#1890ff" }} />
+            All Stations
+          </span>
+        }
         extra={
           <Button
             type="primary"
@@ -210,50 +254,88 @@ export default function Stations() {
           </Button>
         }
       >
-        <Table columns={columns} dataSource={data} pagination={false} />
+        <Table
+          columns={columns}
+          dataSource={data}
+          pagination={{ pageSize: 10 }}
+          rowKey="key"
+          size="large"
+          bordered={false}
+          className="admin-table"
+        />
       </Card>
 
       <Modal
         open={open}
         title={editing ? "Edit Station" : "Add Station"}
         onOk={handleOk}
-        onCancel={() => setOpen(false)}
-        okText="Save"
+        onCancel={() => {
+          setOpen(false);
+          setEditing(null);
+          form.resetFields();
+        }}
+        okText={editing ? "Update" : "Add"}
+        width={700}
         destroyOnClose
       >
         <Form layout="vertical" form={form}>
           <Form.Item
             name="name"
             label="Station Name"
-            rules={[{ required: true }]}
+            rules={[{ required: true, message: "Please enter station name" }]}
           >
-            <Input />
+            <Input placeholder="e.g., Bien Hoa Station" />
           </Form.Item>
 
-          <Form.Item name="code" label="Code">
-            <Input />
+          <Form.Item
+            name="code"
+            label="Code"
+            rules={[{ required: true, message: "Please enter code" }]}
+          >
+            <Input placeholder="e.g., ST-BH-01" />
           </Form.Item>
 
-          <Form.Item name="location" label="Location">
-            <Input />
+          <Form.Item
+            name="location"
+            label="Location"
+            rules={[{ required: true, message: "Please enter location" }]}
+          >
+            <Input placeholder="e.g., Bien Hoa, Dong Nai" />
           </Form.Item>
 
-          <Form.Item name="river" label="River">
-            <Input />
+          <Form.Item
+            name="river"
+            label="River"
+            rules={[{ required: true, message: "Please select river" }]}
+          >
+            <Select
+              placeholder="Select river"
+              options={[
+                { label: "Mekong River", value: "Mekong River" },
+                { label: "Dong Nai River", value: "Dong Nai River" },
+                { label: "Tien River", value: "Tien River" },
+                { label: "Saigon River", value: "Saigon River" },
+                { label: "Red River", value: "Red River" },
+              ]}
+            />
           </Form.Item>
 
-          <Form.Item name="coord" label="Coordinates">
-            <Input />
+          <Form.Item
+            name="sensors"
+            label="Number of Sensors"
+            rules={[{ required: true, message: "Please enter number of sensors" }]}
+          >
+            <Input type="number" placeholder="e.g., 8" />
           </Form.Item>
 
           <Form.Item name="status" label="Status">
-            <Select>
-              <Select.Option value="online">Online</Select.Option>
-              <Select.Option value="maintenance">
-                Maintenance
-              </Select.Option>
-              <Select.Option value="offline">Offline</Select.Option>
-            </Select>
+            <Select
+              placeholder="Select status"
+              options={[
+                { label: "Active", value: "active" },
+                { label: "Offline", value: "offline" },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>

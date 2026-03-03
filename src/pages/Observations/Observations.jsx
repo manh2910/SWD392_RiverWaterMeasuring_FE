@@ -1,294 +1,382 @@
 import { useState } from "react";
 import {
+  Card,
   Table,
+  Button,
+  Space,
+  Modal,
+  Form,
   Input,
   Select,
-  Button,
-  Card,
+  Tag,
+  message,
   Row,
   Col,
   Statistic,
-  Tag,
+  DatePicker,
 } from "antd";
 import {
-  LineChartOutlined,
-  RiseOutlined,
-  WarningOutlined,
-  FallOutlined,
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  BarChartOutlined,
   CheckCircleOutlined,
+  WarningOutlined,
+  CloseCircleOutlined,
 } from "@ant-design/icons";
 import "./Observations.css";
-
-const ParamWaveIcon = () => (
-  <svg
-    className="obs-param-icon"
-    viewBox="0 0 24 12"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-  >
-    <path d="M0 6 Q6 0 12 6 T24 6" />
-  </svg>
-);
 
 const initialObservations = [
   {
     key: 1,
-    observedAt: "2025-01-22 10:30:00",
+    date: "2025-01-22 10:30:00",
     station: "Can Tho Station",
     parameter: "Water Level",
-    value: "2.45 m",
-    quality: "good",
-    sensor: "WL-MK001-A1",
+    value: "2.45",
+    unit: "m",
+    status: "good",
   },
   {
     key: 2,
-    observedAt: "2025-01-22 10:30:00",
+    date: "2025-01-22 10:30:00",
     station: "Can Tho Station",
     parameter: "Salinity",
-    value: "0.85 ppt",
-    quality: "good",
-    sensor: "SAL-MK001-A1",
+    value: "0.85",
+    unit: "ppt",
+    status: "good",
   },
   {
     key: 3,
-    observedAt: "2025-01-22 10:30:00",
+    date: "2025-01-22 10:30:00",
     station: "Can Tho Station",
     parameter: "pH",
-    value: "7.2 pH",
-    quality: "good",
-    sensor: "PH-MK001-A1",
+    value: "7.2",
+    unit: "pH",
+    status: "good",
   },
   {
     key: 4,
-    observedAt: "2025-01-22 10:25:00",
-    station: "Can Tho Station",
+    date: "2025-01-22 10:25:00",
+    station: "My Tho Station",
     parameter: "Temperature",
-    value: "28.5 °C",
-    quality: "good",
-    sensor: "TEMP-MK001-A1",
+    value: "28.5",
+    unit: "°C",
+    status: "good",
   },
   {
     key: 5,
-    observedAt: "2025-01-22 10:20:00",
+    date: "2025-01-22 10:20:00",
     station: "My Tho Station",
     parameter: "Water Level",
-    value: "1.92 m",
-    quality: "suspect",
-    sensor: "WL-MK002-A1",
+    value: "1.92",
+    unit: "m",
+    status: "suspect",
   },
   {
     key: 6,
-    observedAt: "2025-01-22 10:15:00",
-    station: "My Tho Station",
+    date: "2025-01-22 10:15:00",
+    station: "Ben Tre Station",
     parameter: "Turbidity",
-    value: "52.1 NTU",
-    quality: "bad",
-    sensor: "TURB-MK002-A1",
+    value: "52.1",
+    unit: "NTU",
+    status: "bad",
   },
 ];
 
 export default function Observations() {
-  const [data] = useState(initialObservations);
-  const [search, setSearch] = useState("");
-  const [pageSize, setPageSize] = useState(10);
-  const [stationFilter, setStationFilter] = useState("all");
-  const [parameterFilter, setParameterFilter] = useState("all");
-  const [qualityFilter, setQualityFilter] = useState("all");
+  const [data, setData] = useState(initialObservations);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form] = Form.useForm();
 
-  const filteredData = data.filter((row) => {
-    const matchSearch =
-      !search ||
-      row.station.toLowerCase().includes(search.toLowerCase()) ||
-      row.parameter.toLowerCase().includes(search.toLowerCase()) ||
-      row.sensor.toLowerCase().includes(search.toLowerCase());
-    const matchStation =
-      stationFilter === "all" || row.station.includes(stationFilter);
-    const matchParameter =
-      parameterFilter === "all" || row.parameter === parameterFilter;
-    const matchQuality =
-      qualityFilter === "all" || row.quality === qualityFilter;
-    return matchSearch && matchStation && matchParameter && matchQuality;
-  });
+  const openModal = (record = null) => {
+    setEditing(record);
+    setOpen(true);
+    form.setFieldsValue(record || {});
+  };
 
-  const resetFilters = () => {
-    setStationFilter("all");
-    setParameterFilter("all");
-    setQualityFilter("all");
-    setSearch("");
+  const handleOk = () => {
+    form.validateFields().then((values) => {
+      if (editing) {
+        setData(
+          data.map((item) =>
+            item.key === editing.key ? { ...item, ...values } : item
+          )
+        );
+        message.success("Observation updated successfully");
+      } else {
+        setData([
+          ...data,
+          {
+            key: Date.now(),
+            ...values,
+          },
+        ]);
+        message.success("Observation added successfully");
+      }
+      setOpen(false);
+      setEditing(null);
+      form.resetFields();
+    });
+  };
+
+  const handleDelete = (record) => {
+    Modal.confirm({
+      title: "Delete observation?",
+      content: "This action cannot be undone.",
+      okType: "danger",
+      onOk: () => {
+        setData(data.filter((i) => i.key !== record.key));
+        message.success("Observation deleted successfully");
+      },
+    });
   };
 
   const columns = [
     {
-      title: "Observed At",
-      dataIndex: "observedAt",
-      key: "observedAt",
+      title: "Date",
+      dataIndex: "date",
+      key: "date",
+      render: (text) => (
+        <Space>
+          <BarChartOutlined style={{ color: "#1890ff" }} />
+          <span className="fw-600">{text}</span>
+        </Space>
+      ),
     },
-    { title: "Station", dataIndex: "station", key: "station" },
+    {
+      title: "Station",
+      dataIndex: "station",
+      key: "station",
+    },
     {
       title: "Parameter",
       dataIndex: "parameter",
       key: "parameter",
-      render: (param) => (
-        <span className="obs-param-cell">
-          <ParamWaveIcon />
-          <span>{param}</span>
+    },
+    {
+      title: "Value",
+      dataIndex: "value",
+      key: "value",
+      render: (value, record) => (
+        <span className="fw-600">
+          {value} <span style={{ fontSize: "12px", color: "#999" }}>{record.unit}</span>
         </span>
       ),
     },
-    { title: "Value", dataIndex: "value", key: "value" },
     {
-      title: "Quality",
-      dataIndex: "quality",
-      key: "quality",
-      render: (quality) => {
-        if (quality === "good") {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => {
+        if (status === "good") {
           return (
-            <Tag className="obs-quality-good" icon={<CheckCircleOutlined />}>
-              good
+            <Tag icon={<CheckCircleOutlined />} color="green">
+              GOOD
             </Tag>
           );
-        }
-        if (quality === "suspect") {
+        } else if (status === "suspect") {
           return (
-            <Tag className="obs-quality-suspect" icon={<WarningOutlined />}>
-              suspect
+            <Tag icon={<WarningOutlined />} color="orange">
+              SUSPECT
             </Tag>
           );
         }
         return (
-          <Tag className="obs-quality-bad" icon={<FallOutlined />}>
-            bad
+          <Tag icon={<CloseCircleOutlined />} color="red">
+            BAD
           </Tag>
         );
       },
     },
-    { title: "Sensor", dataIndex: "sensor", key: "sensor" },
+    {
+      title: "Actions",
+      key: "actions",
+      fixed: "right",
+      width: 100,
+      render: (_, record) => (
+        <Space size="small">
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => openModal(record)}
+          />
+          <Button
+            type="text"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record)}
+          />
+        </Space>
+      ),
+    },
   ];
+
+  const goodCount = data.filter((o) => o.status === "good").length;
+  const suspectCount = data.filter((o) => o.status === "suspect").length;
+  const badCount = data.filter((o) => o.status === "bad").length;
 
   return (
     <div className="observations-page">
-      <h1>Observations</h1>
-      <p className="page-desc">
-        View and analyze sensor observation data from measurement stations.
-      </p>
-
-      {/* Summary cards */}
-      <Row gutter={16} className="obs-cards-row">
+      {/* ===== STATS ===== */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="obs-stat-card">
+          <Card className="stat-card">
             <Statistic
               title="Total Observations"
-              value={10}
-              suffix={<span className="obs-stat-suffix">Last 24 hours</span>}
-              prefix={<LineChartOutlined className="obs-stat-icon" />}
+              value={data.length}
+              prefix={<BarChartOutlined />}
+              valueStyle={{ color: "#1890ff", fontSize: "28px" }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="obs-stat-card obs-stat-good">
+          <Card className="stat-card">
             <Statistic
               title="Good Quality"
-              value={8}
-              suffix={<span className="obs-stat-suffix">80% of total</span>}
-              prefix={<RiseOutlined className="obs-stat-icon" />}
+              value={goodCount}
+              suffix={<span style={{ fontSize: "12px", color: "#999" }}>({Math.round((goodCount / data.length) * 100)}%)</span>}
+              valueStyle={{ color: "#52c41a", fontSize: "28px" }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="obs-stat-card obs-stat-suspect">
+          <Card className="stat-card">
             <Statistic
               title="Suspect"
-              value={1}
-              suffix={<span className="obs-stat-suffix">Needs review</span>}
-              prefix={<WarningOutlined className="obs-stat-icon" />}
+              value={suspectCount}
+              valueStyle={{ color: "#faad14", fontSize: "28px" }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="obs-stat-card obs-stat-bad">
+          <Card className="stat-card">
             <Statistic
               title="Bad Quality"
-              value={1}
-              suffix={<span className="obs-stat-suffix">Flagged readings</span>}
-              prefix={<FallOutlined className="obs-stat-icon" />}
+              value={badCount}
+              valueStyle={{ color: "#f5222d", fontSize: "28px" }}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* Filters */}
-      <div className="obs-filters">
-        <Select
-          value={stationFilter}
-          onChange={setStationFilter}
-          options={[
-            { value: "all", label: "All Stations" },
-            { value: "Can Tho", label: "Can Tho Station" },
-            { value: "My Tho", label: "My Tho Station" },
-          ]}
-          className="obs-filter-select"
+      {/* ===== TABLE ===== */}
+      <Card
+        className="observations-table-card"
+        title={
+          <span>
+            <BarChartOutlined style={{ marginRight: 8, color: "#1890ff" }} />
+            All Observations
+          </span>
+        }
+        extra={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => openModal()}
+          >
+            Add Observation
+          </Button>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={data}
+          pagination={{ pageSize: 10 }}
+          rowKey="key"
+          size="large"
+          bordered={false}
+          className="admin-table"
         />
-        <Select
-          value={parameterFilter}
-          onChange={setParameterFilter}
-          options={[
-            { value: "all", label: "All Parameters" },
-            { value: "Water Level", label: "Water Level" },
-            { value: "Salinity", label: "Salinity" },
-            { value: "pH", label: "pH" },
-            { value: "Temperature", label: "Temperature" },
-            { value: "Turbidity", label: "Turbidity" },
-          ]}
-          className="obs-filter-select"
-        />
-        <Select
-          value={qualityFilter}
-          onChange={setQualityFilter}
-          options={[
-            { value: "all", label: "All Quality" },
-            { value: "good", label: "Good" },
-            { value: "suspect", label: "Suspect" },
-            { value: "bad", label: "Bad" },
-          ]}
-          className="obs-filter-select"
-        />
-        <Button onClick={resetFilters}>Reset Filters</Button>
-      </div>
+      </Card>
 
-      {/* Search & table */}
-      <div className="obs-toolbar">
-        <Input.Search
-          placeholder="Search observations..."
-          allowClear
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="obs-search"
-          style={{ maxWidth: 320 }}
-        />
-        <Select
-          value={pageSize}
-          onChange={setPageSize}
-          options={[
-            { value: 10, label: "10 per page" },
-            { value: 20, label: "20 per page" },
-            { value: 50, label: "50 per page" },
-          ]}
-          className="obs-page-size"
-        />
-      </div>
-
-      <Table
-        dataSource={filteredData}
-        columns={columns}
-        pagination={{
-          pageSize,
-          showSizeChanger: false,
-          showTotal: (total) => `Total ${total} observations`,
+      {/* ===== MODAL ===== */}
+      <Modal
+        open={open}
+        title={editing ? "Edit Observation" : "Add Observation"}
+        onOk={handleOk}
+        onCancel={() => {
+          setOpen(false);
+          setEditing(null);
+          form.resetFields();
         }}
-        className="obs-table"
-      />
+        okText={editing ? "Update" : "Add"}
+        width={700}
+        destroyOnClose
+      >
+        <Form layout="vertical" form={form}>
+          <Form.Item
+            name="date"
+            label="Date & Time"
+            rules={[{ required: true, message: "Please enter date and time" }]}
+          >
+            <Input placeholder="e.g., 2025-01-22 10:30:00" />
+          </Form.Item>
+
+          <Form.Item
+            name="station"
+            label="Station"
+            rules={[{ required: true, message: "Please select station" }]}
+          >
+            <Select
+              placeholder="Select station"
+              options={[
+                { label: "Can Tho Station", value: "Can Tho Station" },
+                { label: "My Tho Station", value: "My Tho Station" },
+                { label: "Ben Tre Station", value: "Ben Tre Station" },
+                { label: "Bien Hoa Station", value: "Bien Hoa Station" },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="parameter"
+            label="Parameter"
+            rules={[{ required: true, message: "Please select parameter" }]}
+          >
+            <Select
+              placeholder="Select parameter"
+              options={[
+                { label: "Water Level", value: "Water Level" },
+                { label: "Salinity", value: "Salinity" },
+                { label: "pH", value: "pH" },
+                { label: "Temperature", value: "Temperature" },
+                { label: "Dissolved Oxygen", value: "Dissolved Oxygen" },
+                { label: "Turbidity", value: "Turbidity" },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="value"
+            label="Value"
+            rules={[{ required: true, message: "Please enter value" }]}
+          >
+            <Input type="number" placeholder="e.g., 2.45" />
+          </Form.Item>
+
+          <Form.Item
+            name="unit"
+            label="Unit"
+            rules={[{ required: true, message: "Please enter unit" }]}
+          >
+            <Input placeholder="e.g., m, °C, ppt" />
+          </Form.Item>
+
+          <Form.Item name="status" label="Status">
+            <Select
+              placeholder="Select status"
+              options={[
+                { label: "Good", value: "good" },
+                { label: "Suspect", value: "suspect" },
+                { label: "Bad", value: "bad" },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

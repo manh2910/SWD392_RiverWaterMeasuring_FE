@@ -10,12 +10,16 @@ import {
   Select,
   Tag,
   message,
+  Row,
+  Col,
+  Statistic,
 } from "antd";
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   ApartmentOutlined,
+  LinkOutlined,
 } from "@ant-design/icons";
 import "./Hubs.css";
 
@@ -25,27 +29,40 @@ const initialHubs = [
     name: "Can Tho Hub",
     code: "HUB-CT",
     location: "Can Tho City",
-    manager: "Nguyen Van A",
-    stations: 5,
     status: "active",
+    devices: 5,
   },
   {
     key: 2,
     name: "Dong Nai Hub",
     code: "HUB-DN",
     location: "Dong Nai Province",
-    manager: "Tran Thi B",
-    stations: 7,
     status: "active",
+    devices: 7,
   },
   {
     key: 3,
     name: "Tien Giang Hub",
     code: "HUB-TG",
     location: "Tien Giang Province",
-    manager: "Le Van C",
-    stations: 4,
     status: "inactive",
+    devices: 4,
+  },
+  {
+    key: 4,
+    name: "Ho Chi Minh Hub",
+    code: "HUB-HCM",
+    location: "Ho Chi Minh City",
+    status: "active",
+    devices: 6,
+  },
+  {
+    key: 5,
+    name: "Red River Hub",
+    code: "HUB-RR",
+    location: "Northern Vietnam",
+    status: "active",
+    devices: 8,
   },
 ];
 
@@ -65,8 +82,8 @@ export default function Hubs() {
     form.validateFields().then((values) => {
       if (editing) {
         setData(
-          data.map((i) =>
-            i.key === editing.key ? { ...i, ...values } : i
+          data.map((item) =>
+            item.key === editing.key ? { ...item, ...values } : item
           )
         );
         message.success("Hub updated successfully");
@@ -75,7 +92,7 @@ export default function Hubs() {
           ...data,
           {
             key: Date.now(),
-            stations: Math.floor(Math.random() * 5) + 2,
+            status: "active",
             ...values,
           },
         ]);
@@ -90,7 +107,7 @@ export default function Hubs() {
   const handleDelete = (record) => {
     Modal.confirm({
       title: "Delete hub?",
-      content: "All linked stations will be affected.",
+      content: "This action cannot be undone.",
       okType: "danger",
       onOk: () => {
         setData(data.filter((i) => i.key !== record.key));
@@ -101,38 +118,63 @@ export default function Hubs() {
 
   const columns = [
     {
-      title: "HUB",
+      title: "Hub",
       dataIndex: "name",
-      render: (t) => (
+      key: "name",
+      render: (text) => (
         <Space>
-          <ApartmentOutlined />
-          <b>{t}</b>
+          <ApartmentOutlined style={{ color: "#1890ff" }} />
+          <span className="fw-600">{text}</span>
         </Space>
       ),
     },
-    { title: "CODE", dataIndex: "code" },
-    { title: "LOCATION", dataIndex: "location" },
-    { title: "MANAGER", dataIndex: "manager" },
-    { title: "STATIONS", dataIndex: "stations" },
     {
-      title: "STATUS",
+      title: "Code",
+      dataIndex: "code",
+      key: "code",
+    },
+    {
+      title: "Location",
+      dataIndex: "location",
+      key: "location",
+    },
+    {
+      title: "Devices",
+      dataIndex: "devices",
+      key: "devices",
+      render: (count) => (
+        <span className="fw-600" style={{ color: "#1890ff" }}>
+          {count}
+        </span>
+      ),
+    },
+    {
+      title: "Status",
       dataIndex: "status",
-      render: (s) =>
-        s === "active" ? (
-          <Tag color="green">active</Tag>
+      key: "status",
+      render: (status) =>
+        status === "active" ? (
+          <Tag color="green">ACTIVE</Tag>
         ) : (
-          <Tag color="red">inactive</Tag>
+          <Tag color="red">INACTIVE</Tag>
         ),
     },
     {
-      title: "ACTIONS",
+      title: "Actions",
+      key: "actions",
+      fixed: "right",
+      width: 100,
       render: (_, record) => (
-        <Space>
+        <Space size="small">
           <Button
+            type="text"
+            size="small"
             icon={<EditOutlined />}
             onClick={() => openModal(record)}
           />
           <Button
+            type="text"
+            size="small"
             danger
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record)}
@@ -144,9 +186,57 @@ export default function Hubs() {
 
   return (
     <div className="hubs-page">
-      <h1>Hubs</h1>
+      {/* ===== STATS ===== */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Total Hubs"
+              value={data.length}
+              prefix={<ApartmentOutlined />}
+              valueStyle={{ color: "#1890ff", fontSize: "28px" }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Active"
+              value={data.filter((h) => h.status === "active").length}
+              valueStyle={{ color: "#52c41a", fontSize: "28px" }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Total Devices"
+              value={data.reduce((sum, h) => sum + h.devices, 0)}
+              prefix={<LinkOutlined />}
+              valueStyle={{ color: "#722ed1", fontSize: "28px" }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Inactive"
+              value={data.filter((h) => h.status === "inactive").length}
+              valueStyle={{ color: "#f5222d", fontSize: "28px" }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* ===== TABLE ===== */}
       <Card
-        title="All Hubs"
+        className="hubs-table-card"
+        title={
+          <span>
+            <ApartmentOutlined style={{ marginRight: 8, color: "#1890ff" }} />
+            All Hubs
+          </span>
+        }
         extra={
           <Button
             type="primary"
@@ -157,33 +247,72 @@ export default function Hubs() {
           </Button>
         }
       >
-        <Table dataSource={data} columns={columns} pagination={false} />
+        <Table
+          columns={columns}
+          dataSource={data}
+          pagination={{ pageSize: 10 }}
+          rowKey="key"
+          size="large"
+          bordered={false}
+          className="admin-table"
+        />
       </Card>
 
+      {/* ===== MODAL ===== */}
       <Modal
         open={open}
         title={editing ? "Edit Hub" : "Add Hub"}
         onOk={handleOk}
-        onCancel={() => setOpen(false)}
+        onCancel={() => {
+          setOpen(false);
+          setEditing(null);
+          form.resetFields();
+        }}
+        okText={editing ? "Update" : "Add"}
+        width={700}
+        destroyOnClose
       >
         <Form layout="vertical" form={form}>
-          <Form.Item name="name" label="Hub Name" rules={[{ required: true }]}>
-            <Input />
+          <Form.Item
+            name="name"
+            label="Hub Name"
+            rules={[{ required: true, message: "Please enter hub name" }]}
+          >
+            <Input placeholder="e.g., Can Tho Hub" />
           </Form.Item>
-          <Form.Item name="code" label="Code">
-            <Input />
+
+          <Form.Item
+            name="code"
+            label="Code"
+            rules={[{ required: true, message: "Please enter code" }]}
+          >
+            <Input placeholder="e.g., HUB-CT" />
           </Form.Item>
-          <Form.Item name="location" label="Location">
-            <Input />
+
+          <Form.Item
+            name="location"
+            label="Location"
+            rules={[{ required: true, message: "Please enter location" }]}
+          >
+            <Input placeholder="e.g., Can Tho City" />
           </Form.Item>
-          <Form.Item name="manager" label="Manager">
-            <Input />
+
+          <Form.Item
+            name="devices"
+            label="Number of Devices"
+            rules={[{ required: true, message: "Please enter number of devices" }]}
+          >
+            <Input type="number" placeholder="e.g., 5" />
           </Form.Item>
+
           <Form.Item name="status" label="Status">
-            <Select>
-              <Select.Option value="active">Active</Select.Option>
-              <Select.Option value="inactive">Inactive</Select.Option>
-            </Select>
+            <Select
+              placeholder="Select status"
+              options={[
+                { label: "Active", value: "active" },
+                { label: "Inactive", value: "inactive" },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>

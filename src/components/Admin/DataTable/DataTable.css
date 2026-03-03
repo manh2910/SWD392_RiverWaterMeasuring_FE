@@ -1,56 +1,32 @@
-/* ===== PAGE ===== */
-.sensors-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.data-table-page {
+  width: 100%;
 }
 
-.sensors-page .stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
-}
-
-.sensors-page .stat-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  border-color: #1890ff;
-}
-
-.sensors-page .ant-statistic-title {
-  color: var(--text-muted);
-  font-size: 12px;
-  margin-bottom: 8px;
-}
-
-.sensors-page .ant-statistic-content {
-  color: var(--text-main);
-}
-
-/* ===== TABLE CARD ===== */
-.sensors-table-card {
+.data-table-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.sensors-table-card .ant-card-head {
+.data-table-card .ant-card-head {
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-card);
+  padding: 16px 24px;
 }
 
-.sensors-table-card .ant-card-head-title {
+.data-table-card .ant-card-head-title {
   color: var(--text-main);
   font-weight: 600;
   font-size: 16px;
 }
 
-/* ===== TABLE ===== */
+.data-table-card .ant-card-extra {
+  margin-left: auto;
+}
+
 .admin-table {
   background: var(--bg-card);
-  border-radius: 0 0 8px 8px;
 }
 
 .admin-table .ant-table-thead > tr > th {
@@ -70,24 +46,32 @@
 }
 
 .admin-table .ant-table-tbody > tr {
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .admin-table .ant-table-tbody > tr:hover > td {
   background: rgba(24, 144, 255, 0.04);
 }
 
-.admin-table .ant-tag {
-  border-radius: 4px;
-  font-size: 11px;
+.admin-table .ant-table-cell {
+  padding: 12px 16px;
 }
 
-/* ===== UTILITY ===== */
-.fw-600 {
-  font-weight: 600;
+.admin-table .ant-button-text {
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.admin-table .ant-tag {
+  border-radius: 4px;
+  font-size: 12px;
 }
 
 /* ===== MODAL ===== */
+.ant-modal {
+  color: var(--text-main);
+}
+
 .ant-modal-content {
   background: var(--bg-card);
 }
@@ -102,15 +86,18 @@
   font-weight: 600;
 }
 
+.ant-modal-close-x {
+  color: var(--text-muted);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
-  .sensors-page {
-    gap: 16px;
-  }
-
   .admin-table .ant-table-cell {
     padding: 8px 12px;
     font-size: 12px;
   }
-}
+
+  .admin-table .ant-button-text {
+    padding: 2px 4px;
+  }
 }

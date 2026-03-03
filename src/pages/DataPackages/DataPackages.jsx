@@ -1,96 +1,155 @@
 import { useState } from "react";
 import {
+  Card,
   Table,
+  Button,
+  Space,
+  Modal,
+  Form,
   Input,
   Select,
-  Card,
+  Tag,
+  message,
   Row,
   Col,
   Statistic,
-  Tag,
-  Dropdown,
-  Button,
 } from "antd";
 import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
   InboxOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
-  MoreOutlined,
 } from "@ant-design/icons";
 import "./DataPackages.css";
 
-const initialPackages = [
+const initialDataPackages = [
   {
     key: 1,
-    packageId: "pkg-001",
-    hub: "HUB-MK001-A",
+    id: "PKG-001",
     station: "Can Tho Station",
-    receivedAt: "2025-01-22 10:30:00",
-    observations: 3,
+    packageCount: 3,
+    lastUpdate: "2025-01-22 10:30:00",
     status: "processed",
   },
   {
     key: 2,
-    packageId: "pkg-002",
-    hub: "HUB-MK001-B",
+    id: "PKG-002",
     station: "Can Tho Station",
-    receivedAt: "2025-01-22 10:25:00",
-    observations: 2,
+    packageCount: 2,
+    lastUpdate: "2025-01-22 10:25:00",
     status: "processed",
   },
   {
     key: 3,
-    packageId: "pkg-003",
-    hub: "HUB-MK002-A",
+    id: "PKG-003",
     station: "My Tho Station",
-    receivedAt: "2025-01-22 10:20:00",
-    observations: 4,
+    packageCount: 4,
+    lastUpdate: "2025-01-22 10:20:00",
     status: "pending",
   },
   {
     key: 4,
-    packageId: "pkg-004",
-    hub: "HUB-MK001-A",
-    station: "Can Tho Station",
-    receivedAt: "2025-01-22 10:15:00",
-    observations: 0,
+    id: "PKG-004",
+    station: "Ben Tre Station",
+    packageCount: 0,
+    lastUpdate: "2025-01-22 10:15:00",
     status: "error",
   },
   {
     key: 5,
-    packageId: "pkg-005",
-    hub: "HUB-MK002-A",
+    id: "PKG-005",
     station: "My Tho Station",
-    receivedAt: "2025-01-22 10:10:00",
-    observations: 3,
+    packageCount: 3,
+    lastUpdate: "2025-01-22 10:10:00",
     status: "processed",
   },
 ];
 
 export default function DataPackages() {
-  const [data] = useState(initialPackages);
-  const [search, setSearch] = useState("");
-  const [pageSize, setPageSize] = useState(10);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [data, setData] = useState(initialDataPackages);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form] = Form.useForm();
 
-  const filteredData = data.filter((row) => {
-    const matchSearch =
-      !search ||
-      row.packageId.toLowerCase().includes(search.toLowerCase()) ||
-      row.hub.toLowerCase().includes(search.toLowerCase()) ||
-      row.station.toLowerCase().includes(search.toLowerCase());
-    const matchStatus =
-      statusFilter === "all" || row.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const openModal = (record = null) => {
+    setEditing(record);
+    setOpen(true);
+    form.setFieldsValue(record || {});
+  };
+
+  const handleOk = () => {
+    form.validateFields().then((values) => {
+      if (editing) {
+        setData(
+          data.map((item) =>
+            item.key === editing.key ? { ...item, ...values } : item
+          )
+        );
+        message.success("Data package updated successfully");
+      } else {
+        setData([
+          ...data,
+          {
+            key: Date.now(),
+            ...values,
+          },
+        ]);
+        message.success("Data package added successfully");
+      }
+      setOpen(false);
+      setEditing(null);
+      form.resetFields();
+    });
+  };
+
+  const handleDelete = (record) => {
+    Modal.confirm({
+      title: "Delete data package?",
+      content: "This action cannot be undone.",
+      okType: "danger",
+      onOk: () => {
+        setData(data.filter((i) => i.key !== record.key));
+        message.success("Data package deleted successfully");
+      },
+    });
+  };
 
   const columns = [
-    { title: "Package ID", dataIndex: "packageId", key: "packageId" },
-    { title: "Hub", dataIndex: "hub", key: "hub" },
-    { title: "Station", dataIndex: "station", key: "station" },
-    { title: "Received At", dataIndex: "receivedAt", key: "receivedAt" },
-    { title: "Observations", dataIndex: "observations", key: "observations" },
+    {
+      title: "Package ID",
+      dataIndex: "id",
+      key: "id",
+      render: (text) => (
+        <Space>
+          <InboxOutlined style={{ color: "#1890ff" }} />
+          <span className="fw-600">{text}</span>
+        </Space>
+      ),
+    },
+    {
+      title: "Station",
+      dataIndex: "station",
+      key: "station",
+    },
+    {
+      title: "Observations",
+      dataIndex: "packageCount",
+      key: "packageCount",
+      render: (count) => (
+        <span className="fw-600" style={{ color: "#722ed1" }}>
+          {count} records
+        </span>
+      ),
+    },
+    {
+      title: "Last Update",
+      dataIndex: "lastUpdate",
+      key: "lastUpdate",
+      render: (text) => <span style={{ fontSize: "12px", color: "#999" }}>{text}</span>,
+    },
     {
       title: "Status",
       dataIndex: "status",
@@ -98,21 +157,20 @@ export default function DataPackages() {
       render: (status) => {
         if (status === "processed") {
           return (
-            <Tag className="pkg-status-processed" icon={<CheckCircleOutlined />}>
-              processed
+            <Tag icon={<CheckCircleOutlined />} color="green">
+              PROCESSED
             </Tag>
           );
-        }
-        if (status === "pending") {
+        } else if (status === "pending") {
           return (
-            <Tag className="pkg-status-pending" icon={<ClockCircleOutlined />}>
-              pending
+            <Tag icon={<ClockCircleOutlined />} color="orange">
+              PENDING
             </Tag>
           );
         }
         return (
-          <Tag className="pkg-status-error" icon={<CloseCircleOutlined />}>
-            error
+          <Tag icon={<CloseCircleOutlined />} color="red">
+            ERROR
           </Tag>
         );
       },
@@ -120,117 +178,173 @@ export default function DataPackages() {
     {
       title: "Actions",
       key: "actions",
-      render: () => (
-        <Dropdown
-          menu={{
-            items: [
-              { key: "view", label: "View details" },
-              { key: "reprocess", label: "Reprocess" },
-              { key: "download", label: "Download" },
-            ],
-          }}
-          trigger={["click"]}
-        >
-          <Button type="text" icon={<MoreOutlined />} className="pkg-actions-btn" />
-        </Dropdown>
+      fixed: "right",
+      width: 100,
+      render: (_, record) => (
+        <Space size="small">
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => openModal(record)}
+          />
+          <Button
+            type="text"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record)}
+          />
+        </Space>
       ),
     },
   ];
 
+  const processedCount = data.filter((p) => p.status === "processed").length;
+  const pendingCount = data.filter((p) => p.status === "pending").length;
+  const errorCount = data.filter((p) => p.status === "error").length;
+
   return (
     <div className="data-packages-page">
-      <h1>Data Packages</h1>
-      <p className="page-desc">
-        View raw data packages received from measurement hubs.
-      </p>
-
-      {/* Summary cards */}
-      <Row gutter={16} className="pkg-cards-row">
+      {/* ===== STATS ===== */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="pkg-stat-card">
+          <Card className="stat-card">
             <Statistic
               title="Total Packages"
-              value={8}
-              suffix={<span className="pkg-stat-suffix">Last 24 hours</span>}
-              prefix={<InboxOutlined className="pkg-stat-icon" />}
+              value={data.length}
+              prefix={<InboxOutlined />}
+              valueStyle={{ color: "#1890ff", fontSize: "28px" }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="pkg-stat-card pkg-stat-processed">
+          <Card className="stat-card">
             <Statistic
               title="Processed"
-              value={5}
-              suffix={<span className="pkg-stat-suffix">63% success rate</span>}
-              prefix={<CheckCircleOutlined className="pkg-stat-icon" />}
+              value={processedCount}
+              suffix={<span style={{ fontSize: "12px", color: "#999" }}>({Math.round((processedCount / data.length) * 100)}%)</span>}
+              valueStyle={{ color: "#52c41a", fontSize: "28px" }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="pkg-stat-card pkg-stat-pending">
+          <Card className="stat-card">
             <Statistic
               title="Pending"
-              value={1}
-              suffix={<span className="pkg-stat-suffix">In queue</span>}
-              prefix={<ClockCircleOutlined className="pkg-stat-icon" />}
+              value={pendingCount}
+              valueStyle={{ color: "#faad14", fontSize: "28px" }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <Card className="pkg-stat-card pkg-stat-error">
+          <Card className="stat-card">
             <Statistic
               title="Errors"
-              value={2}
-              suffix={<span className="pkg-stat-suffix">Failed to process</span>}
-              prefix={<CloseCircleOutlined className="pkg-stat-icon" />}
+              value={errorCount}
+              valueStyle={{ color: "#f5222d", fontSize: "28px" }}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* Filter, search, pagination */}
-      <div className="pkg-toolbar">
-        <Select
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[
-            { value: "all", label: "All Packages" },
-            { value: "processed", label: "Processed" },
-            { value: "pending", label: "Pending" },
-            { value: "error", label: "Errors" },
-          ]}
-          className="pkg-filter-select"
+      {/* ===== TABLE ===== */}
+      <Card
+        className="data-packages-table-card"
+        title={
+          <span>
+            <InboxOutlined style={{ marginRight: 8, color: "#1890ff" }} />
+            All Data Packages
+          </span>
+        }
+        extra={
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => openModal()}
+          >
+            Add Package
+          </Button>
+        }
+      >
+        <Table
+          columns={columns}
+          dataSource={data}
+          pagination={{ pageSize: 10 }}
+          rowKey="key"
+          size="large"
+          bordered={false}
+          className="admin-table"
         />
-        <Input.Search
-          placeholder="Search packages..."
-          allowClear
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pkg-search"
-          style={{ maxWidth: 320 }}
-        />
-        <Select
-          value={pageSize}
-          onChange={setPageSize}
-          options={[
-            { value: 10, label: "10 per page" },
-            { value: 20, label: "20 per page" },
-            { value: 50, label: "50 per page" },
-          ]}
-          className="pkg-page-size"
-        />
-      </div>
+      </Card>
 
-      <Table
-        dataSource={filteredData}
-        columns={columns}
-        pagination={{
-          pageSize,
-          showSizeChanger: false,
-          showTotal: (total) => `Total ${total} packages`,
+      {/* ===== MODAL ===== */}
+      <Modal
+        open={open}
+        title={editing ? "Edit Data Package" : "Add Data Package"}
+        onOk={handleOk}
+        onCancel={() => {
+          setOpen(false);
+          setEditing(null);
+          form.resetFields();
         }}
-        className="pkg-table"
-      />
+        okText={editing ? "Update" : "Add"}
+        width={700}
+        destroyOnClose
+      >
+        <Form layout="vertical" form={form}>
+          <Form.Item
+            name="id"
+            label="Package ID"
+            rules={[{ required: true, message: "Please enter package ID" }]}
+          >
+            <Input placeholder="e.g., PKG-001" />
+          </Form.Item>
+
+          <Form.Item
+            name="station"
+            label="Station"
+            rules={[{ required: true, message: "Please select station" }]}
+          >
+            <Select
+              placeholder="Select station"
+              options={[
+                { label: "Can Tho Station", value: "Can Tho Station" },
+                { label: "My Tho Station", value: "My Tho Station" },
+                { label: "Ben Tre Station", value: "Ben Tre Station" },
+                { label: "Bien Hoa Station", value: "Bien Hoa Station" },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="packageCount"
+            label="Number of Observations"
+            rules={[{ required: true, message: "Please enter observation count" }]}
+          >
+            <Input type="number" placeholder="e.g., 3" />
+          </Form.Item>
+
+          <Form.Item
+            name="lastUpdate"
+            label="Last Update"
+            rules={[{ required: true, message: "Please enter last update time" }]}
+          >
+            <Input placeholder="e.g., 2025-01-22 10:30:00" />
+          </Form.Item>
+
+          <Form.Item name="status" label="Status">
+            <Select
+              placeholder="Select status"
+              options={[
+                { label: "Processed", value: "processed" },
+                { label: "Pending", value: "pending" },
+                { label: "Error", value: "error" },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

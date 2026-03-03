@@ -9,12 +9,68 @@ import {
   DatabaseOutlined,
   InboxOutlined,
 } from "@ant-design/icons";
-import { NavLink } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./Sidebar.css";
 
 const { Sider } = Layout;
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const menuItems = [
+    {
+      key: "/admin",
+      icon: <DashboardOutlined />,
+      label: "Dashboard",
+      onClick: () => navigate("/admin"),
+    },
+    {
+      key: "/admin/rivers",
+      icon: <EnvironmentOutlined />,
+      label: "Rivers",
+      onClick: () => navigate("/admin/rivers"),
+    },
+    {
+      key: "/admin/stations",
+      icon: <ApartmentOutlined />,
+      label: "Stations",
+      onClick: () => navigate("/admin/stations"),
+    },
+    {
+      key: "/admin/hubs",
+      icon: <ClusterOutlined />,
+      label: "Hubs",
+      onClick: () => navigate("/admin/hubs"),
+    },
+    {
+      key: "/admin/sensors",
+      icon: <ThunderboltOutlined />,
+      label: "Sensors",
+      onClick: () => navigate("/admin/sensors"),
+    },
+    {
+      key: "/admin/parameters",
+      icon: <LineChartOutlined />,
+      label: "Parameters",
+      onClick: () => navigate("/admin/parameters"),
+    },
+    {
+      key: "/admin/observations",
+      icon: <DatabaseOutlined />,
+      label: "Observations",
+      onClick: () => navigate("/admin/observations"),
+    },
+    {
+      key: "/admin/data-packages",
+      icon: <InboxOutlined />,
+      label: "Data Packages",
+      onClick: () => navigate("/admin/data-packages"),
+    },
+  ];
+
+  const selectedKey = location.pathname;
+
   return (
     <Sider
       width={240}
@@ -25,32 +81,11 @@ export default function Sidebar() {
     >
       <div className="logo">🌊 WaterMonitor</div>
 
-      <Menu mode="inline" defaultSelectedKeys={["/admin"]}>
-        <Menu.Item key="/admin" icon={<DashboardOutlined />}>
-          <NavLink to="/admin">Dashboard</NavLink>
-        </Menu.Item>
-        <Menu.Item key="/admin/rivers" icon={<EnvironmentOutlined />}>
-          <NavLink to="/admin/rivers">Rivers</NavLink>
-        </Menu.Item>
-        <Menu.Item key="/admin/stations" icon={<ApartmentOutlined />}>
-          <NavLink to="/admin/stations">Stations</NavLink>
-        </Menu.Item>
-        <Menu.Item key="/admin/hubs" icon={<ClusterOutlined />}>
-          <NavLink to="/admin/hubs">Hubs</NavLink>
-        </Menu.Item>
-        <Menu.Item key="/admin/sensors" icon={<ThunderboltOutlined />}>
-          <NavLink to="/admin/sensors">Sensors</NavLink>
-        </Menu.Item>
-        <Menu.Item key="/admin/parameters" icon={<LineChartOutlined />}>
-          <NavLink to="/admin/parameters">Parameters</NavLink>
-        </Menu.Item>
-        <Menu.Item key="/admin/observations" icon={<DatabaseOutlined />}>
-          <NavLink to="/admin/observations">Observations</NavLink>
-        </Menu.Item>
-        <Menu.Item key="/admin/data-packages" icon={<InboxOutlined />}>
-          <NavLink to="/admin/data-packages">Data Packages</NavLink>
-        </Menu.Item>
-      </Menu>
+      <Menu 
+        mode="inline" 
+        items={menuItems}
+        selectedKeys={[selectedKey]}
+      />
     </Sider>
   );
 }
