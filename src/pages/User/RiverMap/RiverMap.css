@@ -1,0 +1,539 @@
+.river-map-page {
+  padding: 32px 60px 48px;
+  background: var(--page-bg);
+  color: var(--text-main);
+}
+
+.river-map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.river-map-header h1 {
+  margin: 0;
+  font-size: 28px;
+  color: var(--text-main);
+}
+
+.river-map-header p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+
+.river-map-back {
+  border-radius: 999px;
+}
+
+.river-map-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.river-map-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.river-map-search {
+  width: 340px;
+  max-width: 100%;
+}
+
+.river-map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.5fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.river-detail-card {
+  margin-top: 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  padding: 18px 18px 14px;
+}
+
+/* River detail theme tokens (light defaults) */
+.river-detail-card {
+  --rd-border: var(--border-color);
+  --rd-grid: rgba(15, 23, 42, 0.12);
+  --rd-axis: rgba(15, 23, 42, 0.5);
+  --rd-line: rgba(37, 99, 235, 0.95);
+  --rd-tooltip-bg: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="dark"] .river-detail-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: radial-gradient(circle at top left, rgba(2, 6, 23, 0.92), rgba(0, 0, 0, 0.95));
+  --rd-border: rgba(255, 255, 255, 0.08);
+  --rd-grid: rgba(148, 163, 184, 0.12);
+  --rd-axis: rgba(229, 231, 235, 0.55);
+  --rd-line: rgba(96, 165, 250, 0.95);
+  --rd-tooltip-bg: rgba(2, 6, 23, 0.95);
+}
+
+.river-detail-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.river-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.river-detail-more {
+  border-radius: 999px;
+  border: 1px solid var(--rd-border);
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--text-main);
+}
+
+[data-theme="dark"] .river-detail-more {
+  background: rgba(96, 165, 250, 0.12);
+  color: var(--text-main);
+}
+
+.river-detail-more:hover {
+  border-color: rgba(37, 99, 235, 0.35) !important;
+  background: rgba(37, 99, 235, 0.12) !important;
+  color: var(--text-main) !important;
+}
+
+.river-detail-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.2px;
+}
+
+.river-detail-subtitle {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.river-detail-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--rd-line);
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid var(--rd-border);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.river-detail-level {
+  border-radius: 14px;
+  border: 1px solid var(--rd-border);
+  padding: 14px 14px 10px;
+  background: rgba(34, 197, 94, 0.06);
+  margin-bottom: 14px;
+}
+
+[data-theme="dark"] .river-detail-level {
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.river-detail-level-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.river-detail-level-label {
+  color: var(--text-muted);
+}
+
+.river-detail-level-value {
+  color: rgba(34, 197, 94, 1);
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.river-detail-level-bar {
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(2, 6, 23, 0.12);
+  border: 1px solid var(--rd-border);
+}
+
+[data-theme="dark"] .river-detail-level-bar {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.river-detail-level-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.9), rgba(34, 197, 94, 0.55));
+}
+
+.river-detail-level-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.river-detail-chart {
+  padding: 6px 4px 0;
+  margin-bottom: 14px;
+}
+
+.river-detail-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.river-detail-metric {
+  border: 1px solid var(--rd-border);
+  border-radius: 12px;
+  padding: 12px 12px;
+  background: rgba(2, 6, 23, 0.02);
+}
+
+[data-theme="dark"] .river-detail-metric {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.river-detail-metric-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.river-detail-metric-value {
+  color: var(--text-main);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.river-detail-updated {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.river-map-left,
+.river-map-right {
+  background: transparent;
+}
+
+.river-map-container {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.river-map-map-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.river-map-leaflet {
+  height: 100%;
+  min-height: 420px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.river-map-info-card {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+}
+
+.river-map-info-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-main);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.river-map-info-row {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.river-map-info-row strong {
+  color: var(--text-main);
+}
+
+.panel-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 12px;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.river-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-item::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.legend-high::before {
+  background: #ef4444;
+}
+
+.legend-normal::before {
+  background: #22c55e;
+}
+
+.legend-low::before {
+  background: #0ea5e9;
+}
+
+.river-map-right {
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.river-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 340px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.river-item {
+  width: 100%;
+  border: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.river-item:hover {
+  background: rgba(15, 23, 42, 0.04);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 20px rgba(15, 23, 42, 0.12);
+}
+
+.river-item-active {
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: 0 12px 24px rgba(30, 64, 175, 0.18);
+}
+
+.river-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.river-item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.river-item-country {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.river-item-level {
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 999px;
+}
+
+.river-branches-card {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.river-branches-card .panel-header {
+  margin-bottom: 10px;
+}
+
+.river-branches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.river-branch-item {
+  width: 100%;
+  border: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.river-branch-item:hover {
+  background: rgba(15, 23, 42, 0.04);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+}
+
+.river-branch-item-active {
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: 0 8px 16px rgba(30, 64, 175, 0.15);
+}
+
+.river-branch-name {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.river-branch-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.river-branches-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .river-branch-item:hover {
+  background: #0b1120;
+}
+
+[data-theme="dark"] .river-branch-item-active {
+  background: #111827;
+}
+
+/* Dark mode: keep the original "deep" look */
+[data-theme="dark"] .river-map-container {
+  background: rgba(2, 6, 23, 0.6);
+}
+
+[data-theme="dark"] .river-map-right {
+  background: radial-gradient(circle at top left, #020617, #020617 40%, #000000);
+}
+
+[data-theme="dark"] .river-item:hover {
+  background: #0b1120;
+  box-shadow: 0 12px 20px rgba(15, 23, 42, 0.7);
+}
+
+[data-theme="dark"] .river-item-active {
+  background: #111827;
+  box-shadow: 0 12px 24px rgba(30, 64, 175, 0.5);
+}
+
+@media (max-width: 1024px) {
+  .river-map-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .river-map-page {
+    padding-inline: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .river-map-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .river-map-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .river-map-search {
+    width: 100%;
+  }
+
+  .river-map-leaflet {
+    min-height: 340px;
+  }
+
+  .river-detail-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+

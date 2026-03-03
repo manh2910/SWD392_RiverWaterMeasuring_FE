@@ -11,19 +11,18 @@ import Observations from "./pages/Admin/Observations/Observations";
 import DataPackages from "./pages/Admin/DataPackages/DataPackages";
 import HomePage from "./pages/User/HomePage/HomePage";
 import WaterAnalytics from "./pages/User/WaterAnalytics/WaterAnalytics";
-
-
-
-
-
+import RiverMap from "./pages/User/RiverMap/RiverMap";
+import WaterQualityMetrics from "./pages/User/WaterQualityMetrics/WaterQualityMetrics";
 
 function App() {
   return (
     <Routes>
       {/* ADMIN */}
 
-       <Route path="/" element={<HomePage/>} />
-        <Route path="/analytics" element={<WaterAnalytics/>} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/analytics" element={<WaterAnalytics />} />
+      <Route path="/map" element={<RiverMap />} />
+      <Route path="/quality" element={<WaterQualityMetrics />} />
 
 
 
@@ -35,12 +34,10 @@ function App() {
         <Route path="rivers" element={<Rivers />} />
         <Route path="stations" element={<Stations />} />
         <Route path="hubs" element={<Hubs />} />
-
         <Route path="sensors" element={<Sensors />} />
         <Route path="parameters" element={<Parameters />} />
         <Route path="observations" element={<Observations />} />
         <Route path="data-packages" element={<DataPackages />} />
-
       </Route>
     </Routes>
   );
