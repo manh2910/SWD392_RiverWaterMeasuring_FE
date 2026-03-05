@@ -54,7 +54,11 @@ export default function AppHeader() {
 
   const userMenu = {
     items: [
-      { key: "profile", label: "Profile" },
+      {
+        key: "profile",
+        label: "Profile",
+        onClick: () => navigate("/profile")
+      },
       {
         key: "logout",
         label: "Logout",

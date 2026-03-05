@@ -16,6 +16,7 @@ import WaterQualityMetrics from "./pages/User/WaterQualityMetrics/WaterQualityMe
 import Auth from "./pages/User/Auth/Auth";
 import AlertSettings from "./pages/User/AlertSettings/AlertSettings";
 import History from "./pages/User/History/History";
+import Profile from "./pages/User/Profile/Profile";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
       <Route path="/quality" element={<WaterQualityMetrics />} />
       <Route path="/settings" element={<AlertSettings />} />
       <Route path="/history" element={<History />} />
+      <Route path="/profile" element={<Profile />} />
 
 
 
