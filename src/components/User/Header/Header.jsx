@@ -9,6 +9,7 @@ import {
   ClockCircleOutlined
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
+import { clearAuthSession } from "../../../utils/auth";
 import "./Header.css";
 
 const { Header } = Layout;
@@ -63,7 +64,7 @@ export default function AppHeader() {
         key: "logout",
         label: "Logout",
         onClick: () => {
-          localStorage.removeItem("loggedInUser");
+          clearAuthSession();
           navigate("/login");
         }
       }

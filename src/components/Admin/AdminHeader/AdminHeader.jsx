@@ -1,10 +1,14 @@
 import { Layout, Input, Badge, Avatar, Button, Dropdown, Space } from "antd";
 import { BellOutlined, UserOutlined, LogoutOutlined, SettingOutlined } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
+import { clearAuthSession } from "../../../utils/auth";
 import "./AdminHeader.css";
 
 const { Header: AntHeader } = Layout;
 
 export default function AdminHeader() {
+  const navigate = useNavigate();
+
   const userMenuItems = [
     {
       key: "profile",
@@ -24,6 +28,10 @@ export default function AdminHeader() {
       label: "Logout",
       icon: <LogoutOutlined />,
       danger: true,
+      onClick: () => {
+        clearAuthSession();
+        navigate("/login");
+      },
     },
   ];
 

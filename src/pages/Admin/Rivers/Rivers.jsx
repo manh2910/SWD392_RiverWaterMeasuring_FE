@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   Table,
@@ -21,61 +21,49 @@ import {
   EnvironmentOutlined,
   RiseOutlined,
 } from "@ant-design/icons";
+import { createRiver, deleteRiver, getRivers, updateRiver } from "../../../api/riverApi";
 import "./Rivers.css";
 
-const initialRivers = [
-  {
-    key: 1,
-    name: "Mekong River",
-    code: "R-MEKONG",
-    length: "4350 km",
-    regions: "Vietnam, Laos, Cambodia",
-    status: "monitored",
-    stations: 12,
-  },
-  {
-    key: 2,
-    name: "Dong Nai River",
-    code: "R-DN",
-    length: "586 km",
-    regions: "Dong Nai, HCMC",
-    status: "monitored",
-    stations: 5,
-  },
-  {
-    key: 3,
-    name: "Saigon River",
-    code: "R-SG",
-    length: "256 km",
-    regions: "HCMC",
-    status: "inactive",
-    stations: 3,
-  },
-  {
-    key: 4,
-    name: "Red River",
-    code: "R-RED",
-    length: "1149 km",
-    regions: "Vietnam, China",
-    status: "monitored",
-    stations: 8,
-  },
-  {
-    key: 5,
-    name: "Tien River",
-    code: "R-TIEN",
-    length: "230 km",
-    regions: "Tien Giang, Ben Tre",
-    status: "monitored",
-    stations: 6,
-  },
-];
+const normalizeRiver = (river, index) => {
+  const id = river?.id ?? river?.riverId ?? river?.riverID ?? index + 1;
+  const rawLength = river?.length ?? river?.riverLength ?? "";
+  const length = typeof rawLength === "number" ? `${rawLength} km` : String(rawLength || "");
+
+  return {
+    id,
+    key: id,
+    name: river?.name ?? river?.riverName ?? "-",
+    code: river?.code ?? river?.riverCode ?? "-",
+    length,
+    regions: river?.regions ?? river?.region ?? river?.location ?? "-",
+    status: river?.status ?? "monitored",
+    stations: Number(river?.stations ?? river?.stationCount ?? 0),
+  };
+};
 
 export default function Rivers() {
-  const [data, setData] = useState(initialRivers);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
+
+  const loadRivers = async () => {
+    try {
+      setLoading(true);
+      const response = await getRivers();
+      const rivers = Array.isArray(response) ? response : response?.data || response?.content || [];
+      setData(rivers.map(normalizeRiver));
+    } catch (error) {
+      message.error(error?.response?.data?.message || "Failed to load rivers");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRivers();
+  }, []);
 
   const openModal = (record = null) => {
     setEditing(record);
@@ -83,35 +71,46 @@ export default function Rivers() {
     form.setFieldsValue(record || {});
   };
 
-  const handleOk = () => {
-    form.validateFields().then((values) => {
-      if (editing) {
-        setData(
-          data.map((i) =>
-            i.key === editing.key ? { ...i, ...values } : i
-          )
-        );
+  const handleOk = async () => {
+    try {
+      const values = await form.validateFields();
+      const payload = {
+        ...values,
+        stations: Number(values.stations || 0),
+      };
+
+      if (editing?.id) {
+        await updateRiver(editing.id, payload);
         message.success("River updated successfully");
       } else {
-        setData([
-          ...data,
-          { key: Date.now(), status: "monitored", ...values },
-        ]);
+        await createRiver(payload);
         message.success("River added successfully");
       }
+
       setOpen(false);
       setEditing(null);
       form.resetFields();
-    });
+      loadRivers();
+    } catch (error) {
+      if (error?.errorFields) {
+        return;
+      }
+      message.error(error?.response?.data?.message || "Failed to save river");
+    }
   };
 
   const handleDelete = (record) => {
     Modal.confirm({
       title: "Delete river?",
       okType: "danger",
-      onOk: () => {
-        setData(data.filter((i) => i.key !== record.key));
-        message.success("River deleted successfully");
+      onOk: async () => {
+        try {
+          await deleteRiver(record.id);
+          message.success("River deleted successfully");
+          loadRivers();
+        } catch (error) {
+          message.error(error?.response?.data?.message || "Failed to delete river");
+        }
       },
     });
   };
@@ -233,7 +232,10 @@ export default function Rivers() {
           <Card className="stat-card">
             <Statistic
               title="Total Length"
-              value="6571 km"
+              value={`${data.reduce((sum, river) => {
+                const value = parseFloat(String(river.length).replace(/[^\d.]/g, ""));
+                return sum + (Number.isNaN(value) ? 0 : value);
+              }, 0)} km`}
               valueStyle={{ color: "#fa8c16", fontSize: "28px" }}
             />
           </Card>
@@ -262,8 +264,9 @@ export default function Rivers() {
         <Table
           columns={columns}
           dataSource={data}
+          loading={loading}
           pagination={{ pageSize: 10 }}
-          rowKey="key"
+          rowKey="id"
           size="large"
           bordered={false}
           className="admin-table"
