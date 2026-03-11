@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   Table,
@@ -13,7 +13,9 @@ import {
   Row,
   Col,
   Statistic,
+  InputNumber,
 } from "antd";
+
 import {
   PlusOutlined,
   EditOutlined,
@@ -21,122 +23,194 @@ import {
   EnvironmentOutlined,
   RiseOutlined,
 } from "@ant-design/icons";
-import "./Rivers.css";
 
-const initialRivers = [
-  {
-    key: 1,
-    name: "Mekong River",
-    code: "R-MEKONG",
-    length: "4350 km",
-    regions: "Vietnam, Laos, Cambodia",
-    status: "monitored",
-    stations: 12,
-  },
-  {
-    key: 2,
-    name: "Dong Nai River",
-    code: "R-DN",
-    length: "586 km",
-    regions: "Dong Nai, HCMC",
-    status: "monitored",
-    stations: 5,
-  },
-  {
-    key: 3,
-    name: "Saigon River",
-    code: "R-SG",
-    length: "256 km",
-    regions: "HCMC",
-    status: "inactive",
-    stations: 3,
-  },
-  {
-    key: 4,
-    name: "Red River",
-    code: "R-RED",
-    length: "1149 km",
-    regions: "Vietnam, China",
-    status: "monitored",
-    stations: 8,
-  },
-  {
-    key: 5,
-    name: "Tien River",
-    code: "R-TIEN",
-    length: "230 km",
-    regions: "Tien Giang, Ben Tre",
-    status: "monitored",
-    stations: 6,
-  },
-];
+import {
+  getRivers,
+  createRiver,
+  updateRiver,
+  deleteRiver,
+} from "../../../api/riverApi";
 
 export default function Rivers() {
-  const [data, setData] = useState(initialRivers);
+
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+
+  const [riverType, setRiverType] = useState("main");
+
   const [form] = Form.useForm();
 
-  const openModal = (record = null) => {
-    setEditing(record);
-    setOpen(true);
-    form.setFieldsValue(record || {});
+  // FETCH RIVERS
+  const fetchRivers = async () => {
+
+    try {
+
+      setLoading(true);
+
+      const rivers = await getRivers();
+
+      const formatted = rivers.map((r) => ({
+        id: r.riverId,
+        name: r.riverName,
+        description: r.description,
+        length: r.length,
+        region: r.region,
+        type: r.riverType === "MAIN" ? "main" : "branch",
+        parentRiverId: r.parentRiverId,
+      }));
+
+      setData(formatted);
+
+    } catch (err) {
+
+      console.error(err);
+      message.error("Failed to load rivers");
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
   };
 
-  const handleOk = () => {
-    form.validateFields().then((values) => {
+  useEffect(() => {
+    fetchRivers();
+  }, []);
+
+  const mainRivers = data.filter((r) => r.type === "main");
+
+  // OPEN MODAL
+  const openModal = (record = null) => {
+
+    setEditing(record);
+    setOpen(true);
+
+    if (record) {
+
+      form.setFieldsValue({
+        name: record.name,
+        description: record.description,
+        length: record.length,
+        region: record.region,
+        type: record.type,
+        parentRiverId: record.parentRiverId,
+      });
+
+      setRiverType(record.type);
+
+    } else {
+
+      form.resetFields();
+      setRiverType("main");
+
+    }
+
+  };
+
+  // SAVE RIVER
+  const handleOk = async () => {
+
+    try {
+
+      const values = await form.validateFields();
+
+      const payload = {
+        riverId: editing ? editing.id : 0,
+        riverName: values.name,
+        description: values.description || "",
+        riverType: values.type === "main" ? "MAIN" : "BRANCH",
+        region: values.region || "",
+        length: Number(values.length) || 0,
+        parentRiverId:
+          values.type === "main"
+            ? null
+            : Number(values.parentRiverId),
+      };
+
+      console.log("SEND PAYLOAD:", payload);
+
       if (editing) {
-        setData(
-          data.map((i) =>
-            i.key === editing.key ? { ...i, ...values } : i
-          )
-        );
-        message.success("River updated successfully");
+
+        await updateRiver(editing.id, payload);
+        message.success("River updated");
+
       } else {
-        setData([
-          ...data,
-          { key: Date.now(), status: "monitored", ...values },
-        ]);
-        message.success("River added successfully");
+
+        await createRiver(payload);
+        message.success("River created");
+
       }
+
       setOpen(false);
       setEditing(null);
       form.resetFields();
-    });
+
+      fetchRivers();
+
+    } catch (err) {
+
+      console.error("SAVE ERROR:", err.response?.data || err);
+      message.error("Operation failed");
+
+    }
+
   };
 
+  // DELETE
   const handleDelete = (record) => {
+
     Modal.confirm({
-      title: "Delete river?",
+
+      title: "Delete this river?",
+      content: record.name,
       okType: "danger",
-      onOk: () => {
-        setData(data.filter((i) => i.key !== record.key));
-        message.success("River deleted successfully");
+
+      onOk: async () => {
+
+        try {
+
+          await deleteRiver(record.id);
+          message.success("River deleted");
+
+          fetchRivers();
+
+        } catch {
+
+          message.error("Delete failed");
+
+        }
+
       },
     });
+
   };
 
+  // TABLE COLUMNS
   const columns = [
+
     {
       title: "River",
       dataIndex: "name",
-      key: "name",
       render: (text) => (
         <Space>
           <EnvironmentOutlined style={{ color: "#1890ff" }} />
-          <span className="fw-600">{text}</span>
+          <b>{text}</b>
         </Space>
       ),
     },
+
     {
-      title: "Code",
-      dataIndex: "code",
-      key: "code",
+      title: "Description",
+      dataIndex: "description",
     },
+
     {
-      title: "Length",
+      title: "Length (km)",
       dataIndex: "length",
-      key: "length",
       render: (text) => (
         <Space>
           <RiseOutlined />
@@ -144,111 +218,84 @@ export default function Rivers() {
         </Space>
       ),
     },
+
     {
-      title: "Regions",
-      dataIndex: "regions",
-      key: "regions",
+      title: "Region",
+      dataIndex: "region",
     },
+
     {
-      title: "Stations",
-      dataIndex: "stations",
-      key: "stations",
-      render: (count) => (
-        <span className="fw-600" style={{ color: "#1890ff" }}>
-          {count} active
-        </span>
+      title: "River Type",
+      dataIndex: "type",
+      render: (type) => (
+        <Tag color={type === "main" ? "blue" : "green"}>
+          {type === "main" ? "MAIN" : "BRANCH"}
+        </Tag>
       ),
     },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) =>
-        status === "monitored" ? (
-          <Tag color="blue">MONITORED</Tag>
-        ) : (
-          <Tag color="red">INACTIVE</Tag>
-        ),
-    },
+
     {
       title: "Actions",
-      key: "actions",
-      fixed: "right",
-      width: 100,
       render: (_, record) => (
-        <Space size="small">
+        <Space>
+
           <Button
             type="text"
-            size="small"
             icon={<EditOutlined />}
             onClick={() => openModal(record)}
-            title="Edit"
           />
+
           <Button
             type="text"
-            size="small"
             danger
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record)}
-            title="Delete"
           />
+
         </Space>
       ),
     },
+
   ];
 
   return (
-    <div className="rivers-page">
-      {/* ===== STATS ===== */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+    <div>
+
+      <Row gutter={16} style={{ marginBottom: 20 }}>
+
+        <Col span={8}>
+          <Card>
             <Statistic
               title="Total Rivers"
               value={data.length}
               prefix={<EnvironmentOutlined />}
-              valueStyle={{ color: "#1890ff", fontSize: "28px" }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+        <Col span={8}>
+          <Card>
             <Statistic
-              title="Monitored"
-              value={data.filter((r) => r.status === "monitored").length}
-              valueStyle={{ color: "#52c41a", fontSize: "28px" }}
+              title="Main Rivers"
+              value={data.filter((r) => r.type === "main").length}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+        <Col span={8}>
+          <Card>
             <Statistic
-              title="Total Stations"
-              value={data.reduce((sum, r) => sum + r.stations, 0)}
-              valueStyle={{ color: "#722ed1", fontSize: "28px" }}
+              title="Branch Rivers"
+              value={data.filter((r) => r.type === "branch").length}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
-            <Statistic
-              title="Total Length"
-              value="6571 km"
-              valueStyle={{ color: "#fa8c16", fontSize: "28px" }}
-            />
-          </Card>
-        </Col>
+
       </Row>
 
-      {/* ===== TABLE ===== */}
       <Card
-        className="rivers-table-card"
-        title={
-          <span>
-            <EnvironmentOutlined style={{ marginRight: 8, color: "#1890ff" }} />
-            All Rivers
-          </span>
-        }
+        title="Rivers"
         extra={
           <Button
             type="primary"
@@ -259,77 +306,110 @@ export default function Rivers() {
           </Button>
         }
       >
+
         <Table
           columns={columns}
           dataSource={data}
-          pagination={{ pageSize: 10 }}
-          rowKey="key"
-          size="large"
-          bordered={false}
-          className="admin-table"
+          rowKey="id"
+          loading={loading}
         />
+
       </Card>
 
-      {/* ===== MODAL ===== */}
       <Modal
         open={open}
         title={editing ? "Edit River" : "Add River"}
         onOk={handleOk}
         onCancel={() => {
+
           setOpen(false);
           setEditing(null);
           form.resetFields();
+
         }}
-        okText={editing ? "Update" : "Add"}
-        width={700}
       >
-        <Form layout="vertical" form={form}>
+
+        <Form form={form} layout="vertical">
+
           <Form.Item
             name="name"
             label="River Name"
-            rules={[{ required: true, message: "Please enter river name" }]}
+            rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., Mekong River" />
+            <Input placeholder="Mekong River" />
           </Form.Item>
+
+          <Form.Item name="description" label="Description">
+            <Input.TextArea />
+          </Form.Item>
+
+          <Form.Item name="length" label="Length (km)">
+            <InputNumber style={{ width: "100%" }} />
+          </Form.Item>
+
+          <Form.Item name="region" label="Region">
+            <Input placeholder="Vietnam" />
+          </Form.Item>
+
           <Form.Item
-            name="code"
-            label="Code"
-            rules={[{ required: true, message: "Please enter code" }]}
+            name="type"
+            label="River Type"
+            rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., R-MEKONG" />
-          </Form.Item>
-          <Form.Item
-            name="length"
-            label="Length"
-            rules={[{ required: true, message: "Please enter length" }]}
-          >
-            <Input placeholder="e.g., 4350 km" />
-          </Form.Item>
-          <Form.Item
-            name="regions"
-            label="Regions"
-            rules={[{ required: true, message: "Please enter regions" }]}
-          >
-            <Input placeholder="e.g., Vietnam, Laos, Cambodia" />
-          </Form.Item>
-          <Form.Item
-            name="stations"
-            label="Number of Stations"
-            rules={[{ required: true, message: "Please enter number of stations" }]}
-          >
-            <Input type="number" placeholder="e.g., 12" />
-          </Form.Item>
-          <Form.Item name="status" label="Status">
+
             <Select
-              placeholder="Select status"
+              onChange={(value) => {
+
+                setRiverType(value);
+
+                if (value === "main") {
+                  form.setFieldValue("parentRiverId", null);
+                }
+
+              }}
               options={[
-                { label: "Monitored", value: "monitored" },
-                { label: "Inactive", value: "inactive" },
+                { label: "Main River", value: "main" },
+                {
+                  label: "Branch River",
+                  value: "branch",
+                  disabled: mainRivers.length === 0,
+                },
               ]}
             />
+
           </Form.Item>
+
+          {riverType === "branch" && (
+
+            <Form.Item
+              name="parentRiverId"
+              label="Parent River"
+              rules={[
+                {
+                  required: true,
+                  message: "Branch river must have a parent river",
+                },
+              ]}
+            >
+
+              <Select
+                placeholder="Select main river"
+                options={mainRivers.map((r) => ({
+                  label: r.name,
+                  value: r.id,
+                }))}
+              />
+
+            </Form.Item>
+
+          )}
+
         </Form>
+
       </Modal>
+
     </div>
+
   );
+
 }

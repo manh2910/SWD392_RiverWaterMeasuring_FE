@@ -1,10 +1,17 @@
-import { Layout, Input, Badge, Avatar, Button, Dropdown, Space } from "antd";
-import { BellOutlined, UserOutlined, LogoutOutlined, SettingOutlined } from "@ant-design/icons";
+import { Layout, Input, Badge, Avatar, Dropdown, Space } from "antd";
+import {
+  BellOutlined,
+  UserOutlined,
+  LogoutOutlined,
+  SettingOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import "./AdminHeader.css";
 
-const { Header: AntHeader } = Layout;
+const { Header } = Layout;
 
 export default function AdminHeader() {
+
   const userMenuItems = [
     {
       key: "profile",
@@ -28,28 +35,43 @@ export default function AdminHeader() {
   ];
 
   return (
-    <AntHeader className="admin-header">
-      <Input.Search
-        placeholder="Search stations, sensors, alerts..."
-        allowClear
-        enterButton="Search"
-      />
+    <Header className="admin-header">
 
-      <div className="right">
-        <Badge count={8} offset={[-2, 2]}>
-          <BellOutlined className="icon" title="Notifications" />
+      {/* SEARCH */}
+
+      <div className="search-wrapper">
+        <SearchOutlined className="search-icon" />
+        <Input
+          placeholder="Search stations, sensors..."
+          className="search-input"
+          allowClear
+        />
+      </div>
+
+      {/* RIGHT */}
+
+      <div className="header-right">
+
+        <Badge count={8} size="small">
+          <BellOutlined className="header-icon" />
         </Badge>
+
         <Dropdown
           menu={{ items: userMenuItems }}
-          trigger={["click"]}
           placement="bottomRight"
+          trigger={["click"]}
         >
-          <Space style={{ cursor: "pointer" }}>
-            <Avatar icon={<UserOutlined />} />
+          <Space className="user-info">
+
+            <Avatar size={34} icon={<UserOutlined />} />
+
             <span className="username">Admin</span>
+
           </Space>
         </Dropdown>
+
       </div>
-    </AntHeader>
+
+    </Header>
   );
 }

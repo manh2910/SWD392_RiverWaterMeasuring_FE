@@ -17,6 +17,7 @@ import Auth from "./pages/User/Auth/Auth";
 import AlertSettings from "./pages/User/AlertSettings/AlertSettings";
 import History from "./pages/User/History/History";
 import Profile from "./pages/User/Profile/Profile";
+import Register from "./pages/User/Register/Register";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
       {/* USER PAGES */}
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<Auth />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/analytics" element={<WaterAnalytics />} />
       <Route path="/map" element={<RiverMap />} />
       <Route path="/quality" element={<WaterQualityMetrics />} />

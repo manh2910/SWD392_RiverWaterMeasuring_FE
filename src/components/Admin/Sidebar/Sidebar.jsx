@@ -8,6 +8,7 @@ import {
   LineChartOutlined,
   DatabaseOutlined,
   InboxOutlined,
+  HomeOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./Sidebar.css";
@@ -19,6 +20,17 @@ export default function Sidebar() {
   const location = useLocation();
 
   const menuItems = [
+    {
+      key: "/",
+      icon: <HomeOutlined />,
+      label: "User Page",
+      onClick: () => navigate("/"),
+    },
+
+    {
+      type: "divider",
+    },
+
     {
       key: "/admin",
       icon: <DashboardOutlined />,
@@ -79,10 +91,12 @@ export default function Sidebar() {
         borderRight: "1px solid #e5e7eb",
       }}
     >
-      <div className="logo">🌊 WaterMonitor</div>
+      <div className="logo">
+        🌊 <span>Water Monitor</span>
+      </div>
 
-      <Menu 
-        mode="inline" 
+      <Menu
+        mode="inline"
         items={menuItems}
         selectedKeys={[selectedKey]}
       />

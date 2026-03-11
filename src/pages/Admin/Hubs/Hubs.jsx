@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   Table,
@@ -13,309 +13,361 @@ import {
   Row,
   Col,
   Statistic,
+  InputNumber,
 } from "antd";
+
 import {
   PlusOutlined,
-  EditOutlined,
   DeleteOutlined,
   ApartmentOutlined,
   LinkOutlined,
 } from "@ant-design/icons";
+
+import {
+  getHubs,
+  getHubDetail,
+  createSensor,
+} from "../../../api/hubApi";
+
 import "./Hubs.css";
 
-const initialHubs = [
-  {
-    key: 1,
-    name: "Can Tho Hub",
-    code: "HUB-CT",
-    location: "Can Tho City",
-    status: "active",
-    devices: 5,
-  },
-  {
-    key: 2,
-    name: "Dong Nai Hub",
-    code: "HUB-DN",
-    location: "Dong Nai Province",
-    status: "active",
-    devices: 7,
-  },
-  {
-    key: 3,
-    name: "Tien Giang Hub",
-    code: "HUB-TG",
-    location: "Tien Giang Province",
-    status: "inactive",
-    devices: 4,
-  },
-  {
-    key: 4,
-    name: "Ho Chi Minh Hub",
-    code: "HUB-HCM",
-    location: "Ho Chi Minh City",
-    status: "active",
-    devices: 6,
-  },
-  {
-    key: 5,
-    name: "Red River Hub",
-    code: "HUB-RR",
-    location: "Northern Vietnam",
-    status: "active",
-    devices: 8,
-  },
-];
-
 export default function Hubs() {
-  const [data, setData] = useState(initialHubs);
+
+  const [hubs, setHubs] = useState([]);
+  const [sensors, setSensors] = useState([]);
+  const [selectedHub, setSelectedHub] = useState(null);
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
+
   const [form] = Form.useForm();
 
-  const openModal = (record = null) => {
-    setEditing(record);
-    setOpen(true);
-    form.setFieldsValue(record || {});
+  // ===== FETCH HUBS =====
+
+  const fetchHubs = async () => {
+
+    try {
+
+      const hubList = await getHubs();
+
+      console.log("HUB API RESPONSE:", hubList);
+
+      const data = Array.isArray(hubList) ? hubList : hubList?.data || [];
+
+      setHubs(data);
+
+    } catch (err) {
+
+      console.error("HUB LOAD ERROR:", err);
+      message.error("Failed to load hubs");
+
+    }
   };
 
-  const handleOk = () => {
-    form.validateFields().then((values) => {
-      if (editing) {
-        setData(
-          data.map((item) =>
-            item.key === editing.key ? { ...item, ...values } : item
-          )
-        );
-        message.success("Hub updated successfully");
-      } else {
-        setData([
-          ...data,
-          {
-            key: Date.now(),
-            status: "active",
-            ...values,
-          },
-        ]);
-        message.success("Hub added successfully");
-      }
-      setOpen(false);
-      setEditing(null);
-      form.resetFields();
-    });
+  // ===== FETCH HUB DETAIL =====
+
+  const fetchHubDetail = async (hubId) => {
+
+    try {
+
+      const hub = await getHubDetail(hubId);
+
+      console.log("HUB DETAIL:", hub);
+
+      setSelectedHub(hub);
+
+      const sensorList = Array.isArray(hub?.sensors)
+        ? hub.sensors
+        : [];
+
+      setSensors(sensorList);
+
+    } catch (err) {
+
+      console.error("DETAIL ERROR:", err);
+      message.error("Failed to load sensors");
+
+    }
   };
+
+  useEffect(() => {
+    fetchHubs();
+  }, []);
+
+  // ===== ADD SENSOR =====
+
+  const handleAddSensor = async () => {
+
+    try {
+
+      const values = await form.validateFields();
+
+      console.log("FORM VALUES:", values);
+
+      const payload = {
+        parameterCode: values.parameterCode,
+        parameterName: values.parameterName,
+        unit: values.unit,
+        status: values.status,
+        samplingInterval: Number(values.samplingInterval),
+      };
+
+      console.log("CREATE SENSOR PAYLOAD:", payload);
+
+      await createSensor(selectedHub.hubId, payload);
+
+      message.success("Sensor added successfully");
+
+      fetchHubDetail(selectedHub.hubId);
+
+      setOpen(false);
+      form.resetFields();
+
+    } catch (err) {
+
+      console.error("ADD SENSOR ERROR:", err);
+      message.error("Add sensor failed");
+
+    }
+  };
+
+  // ===== DELETE SENSOR (LOCAL ONLY) =====
 
   const handleDelete = (record) => {
+
     Modal.confirm({
-      title: "Delete hub?",
-      content: "This action cannot be undone.",
+      title: "Delete sensor?",
       okType: "danger",
       onOk: () => {
-        setData(data.filter((i) => i.key !== record.key));
-        message.success("Hub deleted successfully");
+
+        setSensors(
+          sensors.filter((s) => s.sensorId !== record.sensorId)
+        );
+
+        message.success("Sensor removed");
+
       },
     });
   };
 
-  const columns = [
+  // ===== HUB TABLE =====
+
+  const hubColumns = [
+
     {
-      title: "Hub",
-      dataIndex: "name",
-      key: "name",
-      render: (text) => (
-        <Space>
-          <ApartmentOutlined style={{ color: "#1890ff" }} />
-          <span className="fw-600">{text}</span>
-        </Space>
-      ),
+      title: "Hub Code",
+      dataIndex: "hubCode",
     },
+
     {
-      title: "Code",
-      dataIndex: "code",
-      key: "code",
+      title: "Protocol",
+      dataIndex: "protocol",
     },
-    {
-      title: "Location",
-      dataIndex: "location",
-      key: "location",
-    },
-    {
-      title: "Devices",
-      dataIndex: "devices",
-      key: "devices",
-      render: (count) => (
-        <span className="fw-600" style={{ color: "#1890ff" }}>
-          {count}
-        </span>
-      ),
-    },
+
     {
       title: "Status",
       dataIndex: "status",
-      key: "status",
       render: (status) =>
-        status === "active" ? (
-          <Tag color="green">ACTIVE</Tag>
-        ) : (
-          <Tag color="red">INACTIVE</Tag>
-        ),
+        status?.toLowerCase() === "active"
+          ? <Tag color="green">ACTIVE</Tag>
+          : <Tag color="red">INACTIVE</Tag>,
     },
+
     {
-      title: "Actions",
-      key: "actions",
-      fixed: "right",
-      width: 100,
+      title: "Action",
       render: (_, record) => (
-        <Space size="small">
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => openModal(record)}
-          />
-          <Button
-            type="text"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record)}
-          />
-        </Space>
+
+        <Button
+          type="primary"
+          onClick={() => fetchHubDetail(record.hubId)}
+        >
+          View Sensors
+        </Button>
+
+      ),
+    },
+  ];
+
+  // ===== SENSOR TABLE =====
+
+  const sensorColumns = [
+
+    {
+      title: "Sensor ID",
+      dataIndex: "sensorId",
+    },
+
+    {
+      title: "Parameter",
+      dataIndex: "parameterName",
+    },
+
+    {
+      title: "Code",
+      dataIndex: "parameterCode",
+    },
+
+    {
+      title: "Unit",
+      dataIndex: "unit",
+    },
+
+    {
+      title: "Interval",
+      dataIndex: "samplingInterval",
+    },
+
+    {
+      title: "Status",
+      dataIndex: "status",
+      render: (status) =>
+        status?.toLowerCase() === "active"
+          ? <Tag color="green">ACTIVE</Tag>
+          : <Tag color="red">INACTIVE</Tag>,
+    },
+
+    {
+      title: "Action",
+      render: (_, record) => (
+
+        <Button
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() => handleDelete(record)}
+        />
+
       ),
     },
   ];
 
   return (
+
     <div className="hubs-page">
+
       {/* ===== STATS ===== */}
+
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+        <Col span={8}>
+          <Card>
             <Statistic
               title="Total Hubs"
-              value={data.length}
+              value={hubs.length}
               prefix={<ApartmentOutlined />}
-              valueStyle={{ color: "#1890ff", fontSize: "28px" }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+        <Col span={8}>
+          <Card>
             <Statistic
-              title="Active"
-              value={data.filter((h) => h.status === "active").length}
-              valueStyle={{ color: "#52c41a", fontSize: "28px" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
-            <Statistic
-              title="Total Devices"
-              value={data.reduce((sum, h) => sum + h.devices, 0)}
+              title="Total Sensors"
+              value={sensors.length}
               prefix={<LinkOutlined />}
-              valueStyle={{ color: "#722ed1", fontSize: "28px" }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+        <Col span={8}>
+          <Card>
             <Statistic
-              title="Inactive"
-              value={data.filter((h) => h.status === "inactive").length}
-              valueStyle={{ color: "#f5222d", fontSize: "28px" }}
+              title="Active Sensors"
+              value={
+                sensors.filter(
+                  (s) => s.status?.toLowerCase() === "active"
+                ).length
+              }
             />
           </Card>
         </Col>
+
       </Row>
 
-      {/* ===== TABLE ===== */}
+      {/* ===== HUB TABLE ===== */}
+
+      <Card title="Hubs" style={{ marginBottom: 20 }}>
+
+        <Table
+          rowKey="hubId"
+          columns={hubColumns}
+          dataSource={hubs}
+        />
+
+      </Card>
+
+      {/* ===== SENSOR TABLE ===== */}
+
       <Card
-        className="hubs-table-card"
-        title={
-          <span>
-            <ApartmentOutlined style={{ marginRight: 8, color: "#1890ff" }} />
-            All Hubs
-          </span>
-        }
+        title={`Sensors of ${selectedHub?.hubCode || ""}`}
         extra={
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => openModal()}
+            disabled={!selectedHub}
+            onClick={() => setOpen(true)}
           >
-            Add Hub
+            Add Sensor
           </Button>
         }
       >
+
         <Table
-          columns={columns}
-          dataSource={data}
-          pagination={{ pageSize: 10 }}
-          rowKey="key"
-          size="large"
-          bordered={false}
-          className="admin-table"
+          rowKey="sensorId"
+          columns={sensorColumns}
+          dataSource={sensors}
         />
+
       </Card>
 
-      {/* ===== MODAL ===== */}
+      {/* ===== ADD SENSOR MODAL ===== */}
+
       <Modal
         open={open}
-        title={editing ? "Edit Hub" : "Add Hub"}
-        onOk={handleOk}
-        onCancel={() => {
-          setOpen(false);
-          setEditing(null);
-          form.resetFields();
-        }}
-        okText={editing ? "Update" : "Add"}
-        width={700}
-        destroyOnClose
+        title="Add Sensor"
+        onOk={handleAddSensor}
+        onCancel={() => setOpen(false)}
       >
+
         <Form layout="vertical" form={form}>
+
           <Form.Item
-            name="name"
-            label="Hub Name"
-            rules={[{ required: true, message: "Please enter hub name" }]}
+            name="parameterCode"
+            label="Parameter Code"
+            rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., Can Tho Hub" />
+            <Input />
           </Form.Item>
 
           <Form.Item
-            name="code"
-            label="Code"
-            rules={[{ required: true, message: "Please enter code" }]}
+            name="parameterName"
+            label="Parameter Name"
+            rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., HUB-CT" />
+            <Input />
+          </Form.Item>
+
+          <Form.Item name="unit" label="Unit">
+            <Input />
           </Form.Item>
 
           <Form.Item
-            name="location"
-            label="Location"
-            rules={[{ required: true, message: "Please enter location" }]}
+            name="samplingInterval"
+            label="Sampling Interval"
           >
-            <Input placeholder="e.g., Can Tho City" />
-          </Form.Item>
-
-          <Form.Item
-            name="devices"
-            label="Number of Devices"
-            rules={[{ required: true, message: "Please enter number of devices" }]}
-          >
-            <Input type="number" placeholder="e.g., 5" />
+            <InputNumber style={{ width: "100%" }} />
           </Form.Item>
 
           <Form.Item name="status" label="Status">
             <Select
-              placeholder="Select status"
               options={[
                 { label: "Active", value: "active" },
                 { label: "Inactive", value: "inactive" },
               ]}
             />
           </Form.Item>
+
         </Form>
+
       </Modal>
+
     </div>
   );
 }

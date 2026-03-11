@@ -134,3 +134,34 @@
 .avatar:hover {
   transform: scale(1.05);
 }
+.user-info {
+  cursor: pointer;
+  color: white;
+  font-weight: 500;
+}
+
+.username {
+  color: rgb(19, 18, 18);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: bold;
+  color: rgb(10, 10, 10);
+  cursor: pointer;
+}
+.ant-layout-header {
+  background: var(--card-bg) !important;
+}
+
+.ant-layout-header .logo-text,
+.ant-layout-header span,
+.ant-layout-header a {
+  color: var(--text-primary) !important;
+}

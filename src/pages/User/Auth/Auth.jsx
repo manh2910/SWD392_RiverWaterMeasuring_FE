@@ -1,115 +1,130 @@
 import React, { useState } from "react";
-import { Layout, Tabs, Form, Input, Button, message } from "antd";
+import { Layout, Form, Input, Button, message, Card, Typography } from "antd";
+import { MailOutlined, LockOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../../components/User/Header/Header";
 import AppFooter from "../../../components/User/Footer/Footer";
+import { loginApi } from "../../../api/authApi";
 import "./Auth.css";
 
 const { Content } = Layout;
+const { Title, Text } = Typography;
 
 export default function Auth() {
-  const [activeKey, setActiveKey] = useState("login");
-
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const onLogin = (values) => {
-    console.log("login", values);
-    // store a simple flag to simulate authentication
-    localStorage.setItem("loggedInUser", values.email);
-    message.success("Logged in (mock)");
-    navigate("/");
-  };
+  const onLogin = async (values) => {
+    try {
+      setLoading(true);
 
-  const onRegister = (values) => {
-    console.log("register", values);
-    message.success("Registered (mock)");
-    setActiveKey("login");
-    // optionally navigate user to login tab
+      const res = await loginApi(values);
+
+      console.log("LOGIN RESPONSE:", res);
+
+      const token = res.token || res.data?.token;
+
+      if (!token) {
+        throw new Error("Token not found in response");
+      }
+
+      localStorage.setItem("token", token);
+      localStorage.setItem("userEmail", res.email || "");
+      localStorage.setItem("role", res.role || "");
+
+      message.success("Login successful!");
+
+      navigate("/");
+    } catch (error) {
+      console.error("Login error:", error);
+
+      if (error.response?.data?.message) {
+        message.error(error.response.data.message);
+      } else {
+        message.error("Email or password incorrect");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <AppHeader />
-      <Content style={{ padding: "40px 60px", background: "#f5f7fa" }}>
-        <div className="auth-container">
-          <Tabs activeKey={activeKey} onChange={(k) => setActiveKey(k)}>
-            <Tabs.TabPane tab="Login" key="login">
-              <Form layout="vertical" onFinish={onLogin} className="auth-form">
-                <Form.Item
-                  name="email"
-                  label="Email"
-                  rules={[{ required: true, message: "Please input your email!" }]}
-                >
-                  <Input />
-                </Form.Item>
-                <Form.Item
-                  name="password"
-                  label="Password"
-                  rules={[{ required: true, message: "Please input your password!" }]}
-                >
-                  <Input.Password />
-                </Form.Item>
-                <Form.Item>
-                  <Button type="primary" htmlType="submit" block>
-                    Login
-                  </Button>
-                </Form.Item>
-              </Form>
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Register" key="register">
-              <Form
-                layout="vertical"
-                onFinish={onRegister}
-                className="auth-form"
+
+      <Content className="auth-page">
+        <Card className="auth-card" variant="borderless">
+          <Title level={3} style={{ textAlign: "center", marginBottom: 30 }}>
+            Login to Your Account
+          </Title>
+
+          <Form layout="vertical" onFinish={onLogin}>
+
+            {/* EMAIL */}
+
+            <Form.Item
+              name="email"
+              label="Email"
+              rules={[
+                { required: true, message: "Please input your email!" },
+                { type: "email", message: "Invalid email!" },
+              ]}
+            >
+              <Input
+                prefix={<MailOutlined />}
+                placeholder="Enter your email"
+                size="large"
+              />
+            </Form.Item>
+
+            {/* PASSWORD */}
+
+            <Form.Item
+              name="password"
+              label="Password"
+              rules={[
+                { required: true, message: "Please input your password!" },
+              ]}
+            >
+              <Input.Password
+                prefix={<LockOutlined />}
+                placeholder="Enter your password"
+                size="large"
+              />
+            </Form.Item>
+
+            {/* LOGIN BUTTON */}
+
+            <Form.Item style={{ marginTop: 20 }}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
+                size="large"
+                loading={loading}
               >
-                <Form.Item
-                  name="email"
-                  label="Email"
-                  rules={[
-                    { required: true, message: "Please input your email!" },
-                    { type: "email", message: "Invalid email!" },
-                  ]}
-                >
-                  <Input />
-                </Form.Item>
-                <Form.Item
-                  name="password"
-                  label="Password"
-                  rules={[{ required: true, message: "Please input your password!" }]}
-                >
-                  <Input.Password />
-                </Form.Item>
-                <Form.Item
-                  name="confirm"
-                  label="Confirm Password"
-                  dependencies={["password"]}
-                  rules={[
-                    {
-                      required: true,
-                      message: "Please confirm your password!",
-                    },
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        if (!value || getFieldValue("password") === value) {
-                          return Promise.resolve();
-                        }
-                        return Promise.reject(new Error("Passwords do not match!"));
-                      },
-                    }),
-                  ]}
-                >
-                  <Input.Password />
-                </Form.Item>
-                <Form.Item>
-                  <Button type="primary" htmlType="submit" block>
-                    Register
-                  </Button>
-                </Form.Item>
-              </Form>
-            </Tabs.TabPane>
-          </Tabs>
-        </div>
+                Login
+              </Button>
+            </Form.Item>
+
+            {/* REGISTER LINK */}
+
+            <div className="auth-bottom">
+              <Text>Don't have an account?</Text>
+
+              <Button
+                type="link"
+                onClick={() => navigate("/register")}
+                style={{ paddingLeft: 5 }}
+              >
+                Register now
+              </Button>
+            </div>
+
+          </Form>
+        </Card>
       </Content>
+
       <AppFooter />
     </Layout>
   );

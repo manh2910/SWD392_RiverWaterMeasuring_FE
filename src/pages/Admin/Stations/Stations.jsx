@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   Table,
@@ -13,237 +13,367 @@ import {
   Row,
   Col,
   Statistic,
+  InputNumber,
 } from "antd";
+
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   ApartmentOutlined,
+  ApiOutlined,
 } from "@ant-design/icons";
-import "./Stations.css";
 
-const initialData = [
-  {
-    key: 1,
-    name: "Bien Hoa Station",
-    code: "ST-BH-01",
-    location: "Bien Hoa, Dong Nai",
-    river: "Dong Nai River",
-    sensors: 8,
-    status: "active",
-  },
-  {
-    key: 2,
-    name: "Can Tho Station A",
-    code: "ST-CT-A01",
-    location: "Can Tho City",
-    river: "Mekong River",
-    sensors: 12,
-    status: "active",
-  },
-  {
-    key: 3,
-    name: "Can Tho Station B",
-    code: "ST-CT-B02",
-    location: "Can Tho City",
-    river: "Mekong River",
-    sensors: 9,
-    status: "active",
-  },
-  {
-    key: 4,
-    name: "My Tho Station",
-    code: "ST-MT-002",
-    location: "My Tho, Tien Giang",
-    river: "Tien River",
-    sensors: 6,
-    status: "active",
-  },
-  {
-    key: 5,
-    name: "Vung Tau Coastal",
-    code: "ST-VT-003",
-    location: "Vung Tau",
-    river: "Saigon River",
-    sensors: 4,
-    status: "offline",
-  },
-];
+import {
+  getStations,
+  createStation,
+  updateStation,
+  deleteStation,
+  createHub,
+} from "../../../api/stationApi";
 
 export default function Stations() {
-  const [data, setData] = useState(initialData);
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form] = Form.useForm();
 
-  const openModal = (record = null) => {
-    setEditing(record);
-    setOpen(true);
-    form.setFieldsValue(record || {});
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const [open, setOpen] = useState(false);
+  const [hubOpen, setHubOpen] = useState(false);
+
+  const [editing, setEditing] = useState(null);
+  const [selectedStation, setSelectedStation] = useState(null);
+
+  const [form] = Form.useForm();
+  const [hubForm] = Form.useForm();
+
+  // ================= FETCH =================
+
+  const fetchStations = async () => {
+
+    try {
+
+      setLoading(true);
+
+      const res = await getStations();
+
+      console.log("API RESPONSE:", res);
+
+      const stations = res?.data || res || [];
+
+      console.log("RAW STATIONS:", stations);
+
+      const formatted = stations.map((s) => {
+
+        console.log("STATION ITEM:", s);
+
+        return {
+          id: s.stationId,
+          key: s.stationId,
+          name: s.stationName,
+          lat: s.latitude,
+          lng: s.longitude,
+          riverId: s.riverId,
+          status: s.isActive ? "active" : "offline",
+        };
+      });
+
+      console.log("FORMATTED DATA:", formatted);
+
+      setData(formatted);
+
+    } catch (err) {
+
+      console.error("FETCH ERROR:", err);
+      message.error("Failed to load stations");
+
+    } finally {
+
+      setLoading(false);
+
+    }
   };
 
-  const handleOk = () => {
-    form.validateFields().then((values) => {
+  useEffect(() => {
+    fetchStations();
+  }, []);
+
+  // ================= OPEN MODAL =================
+
+  const openModal = (record = null) => {
+
+    console.log("OPEN MODAL RECORD:", record);
+
+    setEditing(record);
+    setOpen(true);
+
+    if (record) {
+
+      form.setFieldsValue({
+        name: record.name,
+        lat: record.lat,
+        lng: record.lng,
+        riverId: record.riverId,
+        status: record.status,
+      });
+
+    } else {
+
+      form.resetFields();
+
+    }
+  };
+
+  // ================= SAVE =================
+
+  const handleSave = async () => {
+
+    try {
+
+      const values = await form.validateFields();
+
+      console.log("FORM VALUES:", values);
+
+      const payload = {
+
+        stationId: editing ? editing.id : 0,
+        stationCode: "",
+        stationName: values.name,
+        latitude: Number(values.lat),
+        longitude: Number(values.lng),
+        riverId: Number(values.riverId),
+        isActive: values.status === "active",
+
+      };
+
+      console.log("PAYLOAD:", payload);
+
       if (editing) {
-        setData(
-          data.map((item) =>
-            item.key === editing.key ? { ...item, ...values } : item
-          )
-        );
-        message.success("Station updated successfully");
+
+        console.log("UPDATE STATION:", editing.id);
+
+        await updateStation(editing.id, payload);
+
+        message.success("Station updated");
+
       } else {
-        setData([
-          ...data,
-          {
-            key: Date.now(),
-            status: "active",
-            ...values,
-          },
-        ]);
-        message.success("Station added successfully");
+
+        console.log("CREATE STATION");
+
+        await createStation(payload);
+
+        message.success("Station created");
+
       }
 
       setOpen(false);
       setEditing(null);
       form.resetFields();
-    });
+
+      fetchStations();
+
+    } catch (err) {
+
+      console.error("SAVE ERROR:", err);
+      console.error("SERVER RESPONSE:", err?.response?.data);
+
+      message.error("Save failed");
+
+    }
   };
 
+  // ================= DELETE =================
+
   const handleDelete = (record) => {
+
     Modal.confirm({
+
       title: "Delete station?",
-      content: "This action cannot be undone.",
+      content: record.name,
       okType: "danger",
-      onOk: () => {
-        setData(data.filter((i) => i.key !== record.key));
-        message.success("Station deleted successfully");
+
+      onOk: async () => {
+
+        try {
+
+          console.log("DELETE STATION:", record.id);
+
+          await deleteStation(record.id);
+
+          message.success("Station deleted");
+
+          fetchStations();
+
+        } catch (err) {
+
+          console.error("DELETE ERROR:", err);
+          message.error("Delete failed");
+
+        }
       },
     });
   };
 
+  // ================= HUB =================
+
+  const openHubModal = (station) => {
+
+    console.log("OPEN HUB MODAL:", station);
+
+    setSelectedStation(station);
+    setHubOpen(true);
+
+  };
+
+  const handleCreateHub = async () => {
+
+    try {
+
+      const values = await hubForm.validateFields();
+
+      console.log("HUB FORM VALUES:", values);
+
+      const payload = {
+
+        hubId: 0,
+        hubCode: values.hubCode,
+        protocol: values.protocol,
+        status: "ACTIVE",
+        stationId: selectedStation.id,
+        secretKey: "",
+        sensors: []
+
+      };
+
+      console.log("HUB PAYLOAD:", payload);
+
+      await createHub(selectedStation.id, payload);
+
+      message.success("Hub created");
+
+      setHubOpen(false);
+      hubForm.resetFields();
+
+    } catch (err) {
+
+      console.error("CREATE HUB ERROR:", err);
+      message.error("Create hub failed");
+
+    }
+  };
+
+  // ================= TABLE =================
+
   const columns = [
+
     {
       title: "Station",
       dataIndex: "name",
-      key: "name",
       render: (text) => (
         <Space>
-          <ApartmentOutlined style={{ color: "#1890ff" }} />
-          <span className="fw-600">{text}</span>
+          <ApartmentOutlined style={{ color: "#1677ff" }} />
+          <b>{text}</b>
         </Space>
       ),
     },
+
     {
-      title: "Code",
-      dataIndex: "code",
-      key: "code",
+      title: "Latitude",
+      dataIndex: "lat",
     },
+
     {
-      title: "Location",
-      dataIndex: "location",
-      key: "location",
+      title: "Longitude",
+      dataIndex: "lng",
     },
+
     {
-      title: "River",
-      dataIndex: "river",
-      key: "river",
+      title: "River ID",
+      dataIndex: "riverId",
     },
-    {
-      title: "Sensors",
-      dataIndex: "sensors",
-      key: "sensors",
-      render: (count) => (
-        <span className="fw-600" style={{ color: "#1890ff" }}>
-          {count}
-        </span>
-      ),
-    },
+
     {
       title: "Status",
       dataIndex: "status",
-      key: "status",
       render: (status) =>
-        status === "active" ? (
-          <Tag color="green">ACTIVE</Tag>
-        ) : (
-          <Tag color="red">OFFLINE</Tag>
-        ),
+        status === "active"
+          ? <Tag color="green">ACTIVE</Tag>
+          : <Tag color="red">OFFLINE</Tag>,
     },
+
     {
       title: "Actions",
-      key: "actions",
-      fixed: "right",
-      width: 100,
+      width: 220,
       render: (_, record) => (
-        <Space size="small">
+
+        <Space>
+
           <Button
-            type="text"
-            size="small"
             icon={<EditOutlined />}
             onClick={() => openModal(record)}
           />
+
           <Button
-            type="text"
-            size="small"
             danger
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record)}
           />
+
+          <Button
+            type="primary"
+            icon={<ApiOutlined />}
+            onClick={() => openHubModal(record)}
+          >
+            Hub
+          </Button>
+
         </Space>
+
       ),
     },
   ];
 
   return (
-    <div className="stations-page">
+
+    <div style={{ padding: 24 }}>
+
+      {/* ===== STATS ===== */}
+
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+        <Col span={8}>
+          <Card>
             <Statistic
               title="Total Stations"
               value={data.length}
               prefix={<ApartmentOutlined />}
-              valueStyle={{ color: "#1890ff", fontSize: "28px" }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+        <Col span={8}>
+          <Card>
             <Statistic
               title="Active"
               value={data.filter((s) => s.status === "active").length}
-              valueStyle={{ color: "#52c41a", fontSize: "28px" }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
-            <Statistic
-              title="Total Sensors"
-              value={data.reduce((sum, s) => sum + s.sensors, 0)}
-              valueStyle={{ color: "#722ed1", fontSize: "28px" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card className="stat-card">
+
+        <Col span={8}>
+          <Card>
             <Statistic
               title="Offline"
               value={data.filter((s) => s.status === "offline").length}
-              valueStyle={{ color: "#f5222d", fontSize: "28px" }}
             />
           </Card>
         </Col>
+
       </Row>
 
+      {/* ===== TABLE ===== */}
+
       <Card
-        className="stations-table-card"
-        title={
-          <span>
-            <ApartmentOutlined style={{ marginRight: 8, color: "#1890ff" }} />
-            All Stations
-          </span>
-        }
+        title="Monitoring Stations"
         extra={
           <Button
             type="primary"
@@ -254,91 +384,109 @@ export default function Stations() {
           </Button>
         }
       >
+
         <Table
           columns={columns}
           dataSource={data}
+          loading={loading}
+          rowKey="id"
           pagination={{ pageSize: 10 }}
-          rowKey="key"
-          size="large"
-          bordered={false}
-          className="admin-table"
         />
+
       </Card>
+
+      {/* ===== CREATE / EDIT STATION ===== */}
 
       <Modal
         open={open}
         title={editing ? "Edit Station" : "Add Station"}
-        onOk={handleOk}
+        onOk={handleSave}
         onCancel={() => {
+
           setOpen(false);
           setEditing(null);
           form.resetFields();
+
         }}
-        okText={editing ? "Update" : "Add"}
-        width={700}
-        destroyOnClose
       >
+
         <Form layout="vertical" form={form}>
+
           <Form.Item
             name="name"
             label="Station Name"
-            rules={[{ required: true, message: "Please enter station name" }]}
+            rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., Bien Hoa Station" />
+            <Input />
           </Form.Item>
 
-          <Form.Item
-            name="code"
-            label="Code"
-            rules={[{ required: true, message: "Please enter code" }]}
-          >
-            <Input placeholder="e.g., ST-BH-01" />
+          <Form.Item name="lat" label="Latitude">
+            <InputNumber style={{ width: "100%" }} />
           </Form.Item>
 
-          <Form.Item
-            name="location"
-            label="Location"
-            rules={[{ required: true, message: "Please enter location" }]}
-          >
-            <Input placeholder="e.g., Bien Hoa, Dong Nai" />
+          <Form.Item name="lng" label="Longitude">
+            <InputNumber style={{ width: "100%" }} />
           </Form.Item>
 
-          <Form.Item
-            name="river"
-            label="River"
-            rules={[{ required: true, message: "Please select river" }]}
-          >
-            <Select
-              placeholder="Select river"
-              options={[
-                { label: "Mekong River", value: "Mekong River" },
-                { label: "Dong Nai River", value: "Dong Nai River" },
-                { label: "Tien River", value: "Tien River" },
-                { label: "Saigon River", value: "Saigon River" },
-                { label: "Red River", value: "Red River" },
-              ]}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="sensors"
-            label="Number of Sensors"
-            rules={[{ required: true, message: "Please enter number of sensors" }]}
-          >
-            <Input type="number" placeholder="e.g., 8" />
+          <Form.Item name="riverId" label="River ID">
+            <InputNumber style={{ width: "100%" }} />
           </Form.Item>
 
           <Form.Item name="status" label="Status">
             <Select
-              placeholder="Select status"
               options={[
                 { label: "Active", value: "active" },
                 { label: "Offline", value: "offline" },
               ]}
             />
           </Form.Item>
+
         </Form>
+
       </Modal>
+
+      {/* ===== CREATE HUB ===== */}
+
+      <Modal
+        open={hubOpen}
+        title={`Create Hub for ${selectedStation?.name}`}
+        onOk={handleCreateHub}
+        onCancel={() => {
+
+          setHubOpen(false);
+          hubForm.resetFields();
+
+        }}
+      >
+
+        <Form layout="vertical" form={hubForm}>
+
+          <Form.Item
+            name="hubCode"
+            label="Hub Code"
+            rules={[{ required: true }]}
+          >
+            <Input />
+          </Form.Item>
+
+          <Form.Item
+            name="protocol"
+            label="Protocol"
+            rules={[{ required: true }]}
+          >
+            <Select
+              options={[
+                { label: "MQTT", value: "MQTT" },
+                { label: "HTTP", value: "HTTP" },
+                { label: "LoRa", value: "LORA" },
+              ]}
+            />
+          </Form.Item>
+
+        </Form>
+
+      </Modal>
+
     </div>
   );
 }
