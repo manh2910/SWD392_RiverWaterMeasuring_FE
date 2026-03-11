@@ -1,0 +1,114 @@
+.stations-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.stations-page .stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.stations-page .stat-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-color: #1890ff;
+}
+
+.stations-page .ant-statistic-title {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.stations-page .ant-statistic-content {
+  color: var(--text-main);
+}
+
+/* ===== TABLE CARD ===== */
+.stations-table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.stations-table-card .ant-card-head {
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.stations-table-card .ant-card-head-title {
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* ===== TABLE ===== */
+.admin-table {
+  background: var(--bg-card);
+  border-radius: 0 0 8px 8px;
+}
+
+.admin-table .ant-table-thead > tr > th {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-bottom: 2px solid var(--border-color);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.admin-table .ant-table-tbody > tr > td {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table .ant-table-tbody > tr {
+  transition: background 0.2s ease;
+}
+
+.admin-table .ant-table-tbody > tr:hover > td {
+  background: rgba(24, 144, 255, 0.04);
+}
+
+.admin-table .ant-tag {
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+/* ===== UTILITY ===== */
+.fw-600 {
+  font-weight: 600;
+}
+
+/* ===== MODAL ===== */
+.ant-modal-content {
+  background: var(--bg-card);
+}
+
+.ant-modal-header {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ant-modal-title {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .stations-page {
+    gap: 16px;
+  }
+
+  .admin-table .ant-table-cell {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+}

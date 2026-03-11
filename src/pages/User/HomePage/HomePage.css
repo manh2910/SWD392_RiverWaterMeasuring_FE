@@ -1,0 +1,123 @@
+/* ========= THEME VARIABLES ========= */
+:root {
+  --bg-primary: #ffffff;
+  --card-bg: #ffffff;
+  --border-color: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+}
+
+body.dark {
+  --bg-primary: #0f1117;
+  --card-bg: #161b22;
+  --border-color: #1f2937;
+  --text-primary: #ffffff;
+  --text-secondary: #8c8c8c;
+}
+
+/* ========= LAYOUT ========= */
+.main-layout {
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.dashboard-content {
+  padding: 50px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* ========= HERO ========= */
+.hero-section {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.hero-section h1 {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.hero-section p {
+  color: var(--text-secondary);
+  margin-bottom: 25px;
+}
+
+.welcome-text {
+  font-size: 1.1rem;
+  color: #2f855a;
+  margin-bottom: 8px;
+}
+
+.hero-buttons button {
+  margin: 0 10px;
+}
+
+/* ========= SUMMARY ========= */
+.summary-section {
+  margin-bottom: 50px;
+}
+
+.summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  text-align: center;
+  transition: 0.3s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-5px);
+}
+
+/* ========= SECTION TITLE ========= */
+.section-title {
+  font-size: 22px;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+/* ========= RIVER CARD ========= */
+.river-card {
+  background: var(--card-bg);
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.river-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+.river-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.river-header span {
+  color: var(--text-secondary);
+}
+
+.level-section {
+  margin-bottom: 20px;
+}
+
+.level-text {
+  display: flex;
+  justify-content: space-between;
+}
+
+.level-text h2 {
+  margin: 0;
+  color: #00e676;
+}
+
+.metrics .ant-statistic-title {
+  color: var(--text-secondary);
+}
+
+.metrics .ant-statistic-content {
+  color: var(--text-primary);
+}

@@ -1,0 +1,167 @@
+/* ===== RESET ANT ===== */
+.ant-layout-header {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+/* 🔥 Tắt toàn bộ style mặc định của Ant horizontal menu */
+.ant-menu {
+  background: transparent !important;
+  border-bottom: none !important;
+}
+
+.ant-menu-horizontal > .ant-menu-item::after,
+.ant-menu-horizontal > .ant-menu-item-selected::after {
+  border-bottom: none !important;
+}
+
+/* Ant v5 variable override */
+.ant-menu {
+  --ant-menu-item-selected-bg: transparent !important;
+  --ant-menu-item-active-bg: transparent !important;
+}
+
+/* ===== HEADER CONTAINER ===== */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+
+  width: 100%;
+  height: 70px;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 60px;
+
+  backdrop-filter: blur(12px);
+  background: rgba(17, 24, 39, 0.9);
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ===== LOGO ===== */
+.logo {
+  min-width: 200px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0e0d0d;
+}
+
+/* ===== MENU LAYOUT ===== */
+.menu {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.header-right {
+  min-width: 200px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 25px;
+
+  margin-right: 20px; /* 👈 thêm dòng này */
+}
+
+
+/* ===== MENU ITEM STYLE ===== */
+.ant-menu-horizontal {
+  line-height: 70px;
+}
+
+.ant-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* 🔥 CHỈ GIỮ 1 UNDERLINE DUY NHẤT */
+.ant-menu-item::before {
+  content: "";
+  position: absolute;
+  bottom: -1px;      /* nằm sát đáy header */
+  left: 20%;
+  width: 60%;
+  height: 3px;
+  background: linear-gradient(135deg, #2563eb, #9d4ee7);
+  border-radius: 4px;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.3s ease;
+}
+
+.ant-menu-item-selected::before {
+  transform: scaleX(1);
+}
+
+/* Hover */
+.ant-menu-item:hover {
+  color: #818080 !important;
+  background: transparent !important;
+}
+
+/* Active text – GIỮ NGUYÊN MÀU CỦA M */
+.ant-menu-item-selected {
+  color: #080808 !important;
+  font-weight: 600;
+  background: transparent !important;
+}
+
+/* ===== RIGHT SIDE ===== */
+.header-icon {
+  font-size: 18px;
+  color: #111111;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.header-icon:hover {
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+/* ===== AVATAR ===== */
+.avatar {
+  cursor: pointer;
+  background: linear-gradient(135deg, #0f0f0f, #161616);
+  border: none;
+  transition: 0.3s ease;
+}
+
+.avatar:hover {
+  transform: scale(1.05);
+}
+.user-info {
+  cursor: pointer;
+  color: white;
+  font-weight: 500;
+}
+
+.username {
+  color: rgb(19, 18, 18);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: bold;
+  color: rgb(10, 10, 10);
+  cursor: pointer;
+}
+.ant-layout-header {
+  background: var(--card-bg) !important;
+}
+
+.ant-layout-header .logo-text,
+.ant-layout-header span,
+.ant-layout-header a {
+  color: var(--text-primary) !important;
+}

@@ -1,0 +1,111 @@
+.admin-header {
+  background: #fff !important;
+  height: 64px;
+  padding: 0 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* SEARCH */
+
+.search-wrapper {
+  width: 520px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 0 14px;
+
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+
+  background: #f9fafb;
+
+  transition: all 0.2s;
+  margin-left: 24px;
+}
+
+.search-wrapper:hover {
+  border-color: #1677ff;
+  background: #fff;
+}
+
+.search-icon {
+  color: #999;
+  font-size: 16px;
+}
+
+.search-input {
+  border: none !important;
+  background: transparent !important;
+}
+
+.search-input:focus {
+  box-shadow: none !important;
+}
+
+/* RIGHT */
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+/* ICON */
+
+.header-icon {
+  font-size: 20px;
+  color: #555;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.header-icon:hover {
+  color: #1677ff;
+  transform: scale(1.1);
+}
+
+/* USER */
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.username {
+  font-weight: 500;
+  color: #333;
+}
+
+/* AVATAR */
+
+.ant-avatar {
+  transition: 0.2s;
+}
+
+.ant-avatar:hover {
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+
+  .search-wrapper {
+    width: 200px;
+  }
+
+  .username {
+    display: none;
+  }
+
+}

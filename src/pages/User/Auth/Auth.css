@@ -1,0 +1,18 @@
+.auth-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f5f7fa;
+  padding: 60px 20px;
+}
+
+.auth-card {
+  width: 420px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.auth-bottom {
+  text-align: center;
+  margin-top: 10px;
+}
