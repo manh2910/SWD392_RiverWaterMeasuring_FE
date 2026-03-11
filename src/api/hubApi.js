@@ -20,26 +20,36 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ===== GET ALL HUBS =====
+// ================= HUB API =================
+
+// GET ALL HUBS
 export const getHubs = async () => {
   const res = await api.get("/hubs");
   return res.data;
 };
 
-// ===== GET HUB DETAIL =====
+// GET HUB DETAIL
 export const getHubDetail = async (id) => {
   const res = await api.get(`/hubs/${id}`);
   return res.data;
 };
 
-// ===== GET HUB SENSORS =====
-export const getHubSensors = async (id) => {
-  const res = await api.get(`/hubs/${id}/sensors`);
+// UPDATE HUB
+export const updateHub = async (id, data) => {
+  const res = await api.put(`/hubs/${id}`, data);
   return res.data;
 };
 
-// ===== CREATE SENSOR =====
-export const createSensor = async (hubId, data) => {
-  const res = await api.post(`/hubs/${hubId}/sensors`, data);
+// DELETE HUB
+export const deleteHub = async (id) => {
+  const res = await api.delete(`/hubs/${id}`);
   return res.data;
 };
+
+// REGENERATE SECRET KEY
+export const regenerateSecretKey = async (id) => {
+  const res = await api.post(`/hubs/${id}/secret-key`);
+  return res.data;
+};
+
+export default api;

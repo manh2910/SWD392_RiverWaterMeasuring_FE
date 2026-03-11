@@ -3,30 +3,32 @@ import {
   Card,
   Table,
   Button,
+  Tag,
   Space,
   Modal,
   Form,
   Input,
   Select,
-  Tag,
   message,
   Row,
   Col,
   Statistic,
-  InputNumber,
 } from "antd";
 
 import {
-  PlusOutlined,
-  DeleteOutlined,
   ApartmentOutlined,
-  LinkOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  KeyOutlined,
+  EyeOutlined,
 } from "@ant-design/icons";
 
 import {
   getHubs,
   getHubDetail,
-  createSensor,
+  updateHub,
+  deleteHub,
+  regenerateSecretKey,
 } from "../../../api/hubApi";
 
 import "./Hubs.css";
@@ -34,57 +36,24 @@ import "./Hubs.css";
 export default function Hubs() {
 
   const [hubs, setHubs] = useState([]);
-  const [sensors, setSensors] = useState([]);
   const [selectedHub, setSelectedHub] = useState(null);
-  const [open, setOpen] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
 
   const [form] = Form.useForm();
 
-  // ===== FETCH HUBS =====
+  // ================= FETCH HUBS =================
 
   const fetchHubs = async () => {
-
     try {
 
-      const hubList = await getHubs();
+      const res = await getHubs();
 
-      console.log("HUB API RESPONSE:", hubList);
-
-      const data = Array.isArray(hubList) ? hubList : hubList?.data || [];
+      const data = Array.isArray(res) ? res : res?.data || [];
 
       setHubs(data);
 
     } catch (err) {
-
-      console.error("HUB LOAD ERROR:", err);
       message.error("Failed to load hubs");
-
-    }
-  };
-
-  // ===== FETCH HUB DETAIL =====
-
-  const fetchHubDetail = async (hubId) => {
-
-    try {
-
-      const hub = await getHubDetail(hubId);
-
-      console.log("HUB DETAIL:", hub);
-
-      setSelectedHub(hub);
-
-      const sensorList = Array.isArray(hub?.sensors)
-        ? hub.sensors
-        : [];
-
-      setSensors(sensorList);
-
-    } catch (err) {
-
-      console.error("DETAIL ERROR:", err);
-      message.error("Failed to load sensors");
-
     }
   };
 
@@ -92,65 +61,103 @@ export default function Hubs() {
     fetchHubs();
   }, []);
 
-  // ===== ADD SENSOR =====
+  // ================= HUB DETAIL =================
 
-  const handleAddSensor = async () => {
+  const handleView = async (id) => {
+
+    try {
+
+      const hub = await getHubDetail(id);
+
+      setSelectedHub(hub);
+
+      Modal.info({
+        title: "Hub Detail",
+        content: (
+          <div>
+            <p><b>Code:</b> {hub.hubCode}</p>
+            <p><b>Protocol:</b> {hub.protocol}</p>
+            <p><b>Status:</b> {hub.status}</p>
+            <p><b>Secret Key:</b> {hub.secretKey}</p>
+          </div>
+        ),
+      });
+
+    } catch {
+      message.error("Cannot load hub detail");
+    }
+  };
+
+  // ================= EDIT HUB =================
+
+  const handleEdit = (hub) => {
+
+    setSelectedHub(hub);
+
+    form.setFieldsValue(hub);
+
+    setOpenEdit(true);
+  };
+
+  const submitEdit = async () => {
 
     try {
 
       const values = await form.validateFields();
 
-      console.log("FORM VALUES:", values);
+      await updateHub(selectedHub.hubId, values);
 
-      const payload = {
-        parameterCode: values.parameterCode,
-        parameterName: values.parameterName,
-        unit: values.unit,
-        status: values.status,
-        samplingInterval: Number(values.samplingInterval),
-      };
+      message.success("Hub updated");
 
-      console.log("CREATE SENSOR PAYLOAD:", payload);
+      setOpenEdit(false);
 
-      await createSensor(selectedHub.hubId, payload);
+      fetchHubs();
 
-      message.success("Sensor added successfully");
-
-      fetchHubDetail(selectedHub.hubId);
-
-      setOpen(false);
-      form.resetFields();
-
-    } catch (err) {
-
-      console.error("ADD SENSOR ERROR:", err);
-      message.error("Add sensor failed");
-
+    } catch {
+      message.error("Update failed");
     }
   };
 
-  // ===== DELETE SENSOR (LOCAL ONLY) =====
+  // ================= DELETE HUB =================
 
-  const handleDelete = (record) => {
+  const handleDelete = (hub) => {
 
     Modal.confirm({
-      title: "Delete sensor?",
+      title: "Delete this hub?",
       okType: "danger",
-      onOk: () => {
 
-        setSensors(
-          sensors.filter((s) => s.sensorId !== record.sensorId)
-        );
+      onOk: async () => {
 
-        message.success("Sensor removed");
+        await deleteHub(hub.hubId);
 
+        message.success("Hub deleted");
+
+        fetchHubs();
       },
     });
   };
 
-  // ===== HUB TABLE =====
+  // ================= SECRET KEY =================
 
-  const hubColumns = [
+  const handleSecret = async (hub) => {
+
+    try {
+
+      const res = await regenerateSecretKey(hub.hubId);
+
+      Modal.success({
+        title: "New Secret Key",
+        content: res.secretKey || "Secret key regenerated",
+      });
+
+    } catch {
+      message.error("Failed to regenerate key");
+    }
+  };
+
+  // ================= TABLE =================
+
+  const columns = [
 
     {
       title: "Hub Code",
@@ -175,64 +182,30 @@ export default function Hubs() {
       title: "Action",
       render: (_, record) => (
 
-        <Button
-          type="primary"
-          onClick={() => fetchHubDetail(record.hubId)}
-        >
-          View Sensors
-        </Button>
+        <Space>
 
-      ),
-    },
-  ];
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => handleView(record.hubId)}
+          />
 
-  // ===== SENSOR TABLE =====
+          <Button
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          />
 
-  const sensorColumns = [
+          <Button
+            icon={<KeyOutlined />}
+            onClick={() => handleSecret(record)}
+          />
 
-    {
-      title: "Sensor ID",
-      dataIndex: "sensorId",
-    },
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record)}
+          />
 
-    {
-      title: "Parameter",
-      dataIndex: "parameterName",
-    },
-
-    {
-      title: "Code",
-      dataIndex: "parameterCode",
-    },
-
-    {
-      title: "Unit",
-      dataIndex: "unit",
-    },
-
-    {
-      title: "Interval",
-      dataIndex: "samplingInterval",
-    },
-
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (status) =>
-        status?.toLowerCase() === "active"
-          ? <Tag color="green">ACTIVE</Tag>
-          : <Tag color="red">INACTIVE</Tag>,
-    },
-
-    {
-      title: "Action",
-      render: (_, record) => (
-
-        <Button
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => handleDelete(record)}
-        />
+        </Space>
 
       ),
     },
@@ -244,9 +217,9 @@ export default function Hubs() {
 
       {/* ===== STATS ===== */}
 
-      <Row gutter={16} style={{ marginBottom: 24 }}>
+      <Row gutter={16} style={{ marginBottom: 20 }}>
 
-        <Col span={8}>
+        <Col span={12}>
           <Card>
             <Statistic
               title="Total Hubs"
@@ -256,23 +229,13 @@ export default function Hubs() {
           </Card>
         </Col>
 
-        <Col span={8}>
+        <Col span={12}>
           <Card>
             <Statistic
-              title="Total Sensors"
-              value={sensors.length}
-              prefix={<LinkOutlined />}
-            />
-          </Card>
-        </Col>
-
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Active Sensors"
+              title="Active Hubs"
               value={
-                sensors.filter(
-                  (s) => s.status?.toLowerCase() === "active"
+                hubs.filter(
+                  (h) => h.status?.toLowerCase() === "active"
                 ).length
               }
             />
@@ -283,79 +246,46 @@ export default function Hubs() {
 
       {/* ===== HUB TABLE ===== */}
 
-      <Card title="Hubs" style={{ marginBottom: 20 }}>
+      <Card title="Hub Management">
 
         <Table
           rowKey="hubId"
-          columns={hubColumns}
+          columns={columns}
           dataSource={hubs}
         />
 
       </Card>
 
-      {/* ===== SENSOR TABLE ===== */}
-
-      <Card
-        title={`Sensors of ${selectedHub?.hubCode || ""}`}
-        extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            disabled={!selectedHub}
-            onClick={() => setOpen(true)}
-          >
-            Add Sensor
-          </Button>
-        }
-      >
-
-        <Table
-          rowKey="sensorId"
-          columns={sensorColumns}
-          dataSource={sensors}
-        />
-
-      </Card>
-
-      {/* ===== ADD SENSOR MODAL ===== */}
+      {/* ===== EDIT MODAL ===== */}
 
       <Modal
-        open={open}
-        title="Add Sensor"
-        onOk={handleAddSensor}
-        onCancel={() => setOpen(false)}
+        open={openEdit}
+        title="Edit Hub"
+        onOk={submitEdit}
+        onCancel={() => setOpenEdit(false)}
       >
 
         <Form layout="vertical" form={form}>
 
           <Form.Item
-            name="parameterCode"
-            label="Parameter Code"
+            name="hubCode"
+            label="Hub Code"
             rules={[{ required: true }]}
           >
             <Input />
           </Form.Item>
 
           <Form.Item
-            name="parameterName"
-            label="Parameter Name"
-            rules={[{ required: true }]}
+            name="protocol"
+            label="Protocol"
           >
-            <Input />
-          </Form.Item>
-
-          <Form.Item name="unit" label="Unit">
             <Input />
           </Form.Item>
 
           <Form.Item
-            name="samplingInterval"
-            label="Sampling Interval"
+            name="status"
+            label="Status"
           >
-            <InputNumber style={{ width: "100%" }} />
-          </Form.Item>
-
-          <Form.Item name="status" label="Status">
             <Select
               options={[
                 { label: "Active", value: "active" },
