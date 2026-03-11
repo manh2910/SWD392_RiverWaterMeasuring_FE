@@ -8,8 +8,6 @@ import {
   Statistic,
   Button,
   Space,
-  Select,
-  DatePicker,
   message,
 } from "antd";
 
@@ -20,11 +18,14 @@ import {
   SendOutlined,
 } from "@ant-design/icons";
 
-import { getRiverDetail } from "../../../api/riverApi";
+import { Line } from "@ant-design/plots";
+
+import { getRiverStatus } from "../../../api/observationApi";
+import { sendAlert as sendAlertAPI } from "../../../api/alertApi";
 
 import "./Dashboard.css";
 
-/* ===== THRESHOLDS ===== */
+/* ================= THRESHOLD ================= */
 
 const THRESHOLDS = {
   PH: { min: 6.5, max: 8.5 },
@@ -34,12 +35,11 @@ const THRESHOLDS = {
   FV: { max: 3.5 },
 };
 
-/* ===== SEVERITY ===== */
+/* ================= SEVERITY ================= */
 
 const getSeverity = (code, value) => {
   const t = THRESHOLDS[code];
-
-  if (!t) return "low";
+  if (!t || value === undefined) return "low";
 
   if (t.min && value < t.min * 0.8) return "critical";
   if (t.min && value < t.min) return "high";
@@ -51,33 +51,38 @@ const getSeverity = (code, value) => {
 };
 
 export default function Dashboard() {
-  const [riverInfo, setRiverInfo] = useState(null);
-  const [alertData, setAlertData] = useState([]);
+  const [statusData, setStatusData] = useState([]);
+  const [tableData, setTableData] = useState([]);
   const [overallSeverity, setOverallSeverity] = useState("low");
 
   useEffect(() => {
-    fetchRiver();
+    fetchRiverStatus();
   }, []);
 
-  const fetchRiver = async () => {
-    try {
-      const data = await getRiverDetail(1);
+  /* ================= FETCH ================= */
 
-      setRiverInfo(data.basicInfo);
+  const fetchRiverStatus = async () => {
+    try {
+      const data = await getRiverStatus(1);
+
+      if (!Array.isArray(data)) return;
+
+      setStatusData(data);
 
       let highest = "low";
-
       const map = {};
 
-      data.currentStatus.forEach((p) => {
-        const severity = getSeverity(p.parameterCode, p.averageValue);
+      data.forEach((p) => {
+        const value = Number(p.averageValue) || 0;
+
+        const severity = getSeverity(p.parameterCode, value);
 
         if (severity === "critical") highest = "critical";
         else if (severity === "high" && highest !== "critical")
           highest = "high";
 
         map[p.parameterCode] = {
-          value: p.averageValue,
+          value,
           unit: p.unit,
           severity,
         };
@@ -85,7 +90,6 @@ export default function Dashboard() {
 
       const row = {
         key: 1,
-        river: data.basicInfo.riverName,
         cond: map.COND,
         oxy: map.DO,
         flow: map.FV,
@@ -94,15 +98,15 @@ export default function Dashboard() {
         severity: highest,
       };
 
-      setAlertData([row]);
+      setTableData([row]);
       setOverallSeverity(highest);
     } catch (err) {
       console.log(err);
-      message.error("Load river data failed");
+      message.error("Load river status failed");
     }
   };
 
-  /* ===== COLOR VALUE ===== */
+  /* ================= VALUE RENDER ================= */
 
   const renderValue = (obj) => {
     if (!obj) return "-";
@@ -114,43 +118,51 @@ export default function Dashboard() {
     };
 
     return (
-      <span style={{ color: colors[obj.severity], fontWeight: 600 }}>
-        {obj.value.toFixed(2)} {obj.unit}
+      <span style={{ color: colors[obj.severity], fontWeight: 500 }}>
+        {obj.value !== undefined ? Number(obj.value).toFixed(2) : "-"} {obj.unit}
       </span>
     );
   };
 
-  /* ===== SEND ALERT ===== */
+  /* ================= ALERT ================= */
 
-  const sendAlert = () => {
-    message.success("Alert sent to monitoring system");
+  const sendAlert = async () => {
+    try {
+      const payload = {
+        alertId: 0,
+        message: `River monitoring alert: ${overallSeverity.toUpperCase()} severity detected`,
+      };
+
+      await sendAlertAPI(payload);
+
+      message.success("Alert sent successfully");
+    } catch (err) {
+      console.log(err);
+      message.error("Send alert failed");
+    }
   };
 
-  /* ===== TABLE ===== */
+  /* ================= TABLE ================= */
 
   const columns = [
     {
-      title: "River",
-      dataIndex: "river",
-    },
-    {
-      title: "Độ dẫn điện/Độ mặn",
+      title: "Conductivity",
       render: (_, r) => renderValue(r.cond),
     },
     {
-      title: "Oxy hòa tan",
+      title: "Dissolved Oxygen",
       render: (_, r) => renderValue(r.oxy),
     },
     {
-      title: "Vận tốc dòng chảy",
+      title: "Flow Velocity",
       render: (_, r) => renderValue(r.flow),
     },
     {
-      title: "Độ pH",
+      title: "pH",
       render: (_, r) => renderValue(r.ph),
     },
     {
-      title: "Mực nước",
+      title: "Water Level",
       render: (_, r) => renderValue(r.water),
     },
     {
@@ -163,7 +175,7 @@ export default function Dashboard() {
           low: "green",
         };
 
-        return <Tag color={colors[s]}>{s.toUpperCase()}</Tag>;
+        return <Tag color={colors[s]}>{s?.toUpperCase()}</Tag>;
       },
     },
     {
@@ -171,11 +183,50 @@ export default function Dashboard() {
       render: (_, r) =>
         r.severity === "high" || r.severity === "critical" ? (
           <Button danger icon={<SendOutlined />} onClick={sendAlert}>
-            Send Alert
+            Alert
           </Button>
         ) : null,
     },
   ];
+
+  /* ================= CHART DATA ================= */
+
+  const chartData = statusData
+    .map((p) => ({
+      parameter: p.parameterName || p.parameterCode,
+      value: Number(p.averageValue) || 0,
+    }))
+    .filter((d) => d.parameter);
+
+  /* ================= CHART CONFIG ================= */
+
+  const chartConfig = {
+    data: chartData,
+    xField: "parameter",
+    yField: "value",
+    height: 400,
+    smooth: true,
+    color: "#6b7280",
+    point: {
+      size: 6,
+      shape: "circle",
+    },
+    lineStyle: {
+      lineWidth: 3,
+    },
+    label: {
+      formatter: (d) => {
+        if (!d || d.value === undefined) return "";
+        return Number(d.value).toFixed(2);
+      },
+    },
+    tooltip: {
+      formatter: (d) => ({
+        name: d.parameter,
+        value: Number(d.value).toFixed(2),
+      }),
+    },
+  };
 
   return (
     <div className="dashboard">
@@ -183,22 +234,11 @@ export default function Dashboard() {
 
       <div className="dashboard-header">
         <div>
-          <h1>💧 Water Monitoring Dashboard</h1>
-          <p>Real-time river quality monitoring</p>
+          <h1>Water Monitoring Dashboard</h1>
+          <p>Real-time river monitoring</p>
         </div>
 
         <Space>
-          <Select
-            style={{ width: 150 }}
-            placeholder="Region"
-            options={[
-              { label: "All Regions", value: "all" },
-              { label: "Mekong", value: "mekong" },
-            ]}
-          />
-
-          <DatePicker />
-
           <Button type="primary">Export</Button>
         </Space>
       </div>
@@ -209,8 +249,8 @@ export default function Dashboard() {
         <Col span={6}>
           <Card>
             <Statistic
-              title="River"
-              value={riverInfo?.riverName || "-"}
+              title="Parameters"
+              value={statusData.length}
               prefix={<DatabaseOutlined />}
             />
           </Card>
@@ -218,19 +258,20 @@ export default function Dashboard() {
 
         <Col span={6}>
           <Card>
-            <Statistic
-              title="Sensors"
-              value={5}
-              prefix={<RadarChartOutlined />}
-            />
+            <Statistic title="Sensors" value={5} prefix={<RadarChartOutlined />} />
           </Card>
         </Col>
 
         <Col span={6}>
           <Card>
             <Statistic
-              title="Parameters"
-              value={5}
+              title="Alerts"
+              value={
+                statusData.filter(
+                  (p) =>
+                    getSeverity(p.parameterCode, p.averageValue) !== "low"
+                ).length
+              }
               prefix={<AlertOutlined />}
             />
           </Card>
@@ -254,15 +295,21 @@ export default function Dashboard() {
         </Col>
       </Row>
 
-      {/* ALERT TABLE */}
+      {/* TABLE */}
 
-      <Card title="Recent Alerts" style={{ marginTop: 30 }}>
+      <Card title="Current River Status" style={{ marginTop: 30 }}>
         <Table
           columns={columns}
-          dataSource={alertData}
+          dataSource={tableData}
           pagination={false}
           rowKey="key"
         />
+      </Card>
+
+      {/* CHART */}
+
+      <Card title="River Sensor Monitoring" style={{ marginTop: 30 }}>
+        {chartData.length > 0 ? <Line {...chartConfig} /> : <p>No chart data</p>}
       </Card>
     </div>
   );
