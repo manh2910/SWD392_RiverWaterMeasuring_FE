@@ -19,26 +19,92 @@ import History from "./pages/User/History/History";
 import Profile from "./pages/User/Profile/Profile";
 import Register from "./pages/User/Register/Register";
 
+const RequireAuth = ({ children }) => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <Routes>
       {/* USER PAGES */}
-      <Route path="/" element={<HomePage />} />
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <HomePage />
+          </RequireAuth>
+        }
+      />
       <Route path="/login" element={<Auth />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/analytics" element={<WaterAnalytics />} />
-      <Route path="/map" element={<RiverMap />} />
-      <Route path="/quality" element={<WaterQualityMetrics />} />
-      <Route path="/settings" element={<AlertSettings />} />
-      <Route path="/history" element={<History />} />
-      <Route path="/profile" element={<Profile />} />
+      <Route
+        path="/analytics"
+        element={
+          <RequireAuth>
+            <WaterAnalytics />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/map"
+        element={
+          <RequireAuth>
+            <RiverMap />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/quality"
+        element={
+          <RequireAuth>
+            <WaterQualityMetrics />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <AlertSettings />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          <RequireAuth>
+            <History />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <RequireAuth>
+            <Profile />
+          </RequireAuth>
+        }
+      />
 
 
 
 
       {/* ADMIN */}
 
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route
+        path="/admin"
+        element={
+          <RequireAuth>
+            <AdminLayout />
+          </RequireAuth>
+        }
+      >
         <Route index element={<Dashboard />} />
         <Route path="rivers" element={<Rivers />} />
         <Route path="stations" element={<Stations />} />
@@ -50,7 +116,7 @@ function App() {
       </Route>
 
       {/* 404 */}
-      <Route path="*" element={<Navigate to="/admin" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

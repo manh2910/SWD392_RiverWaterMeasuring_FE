@@ -1,48 +1,40 @@
 import axios from "axios";
 
-/*const BASE_URL = "https://swdriverapi.onrender.com/api/v1/alert-settings";*/
-const BASE_URL = "/api/v1/alert-settings";
+/*const BASE_URL = "https://swdriverapi.onrender.com/api/v1/sensors";*/
+const BASE_URL = "/api/v1/sensors";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
-
-  if (!token) {
-    throw new Error("No token found");
-  }
-
   return {
     Authorization: `Bearer ${token}`,
     "Content-Type": "application/json",
   };
 };
 
-export const getMyAlertSettings = async () => {
-  const res = await axios.get(`${BASE_URL}/me`, {
+export const getSensorsByHub = async (hubId) => {
+  const res = await axios.get(`${BASE_URL}?hubId=${hubId}`, {
     headers: authHeaders(),
   });
   return res.data;
 };
 
-export const createAlertSetting = async (data) => {
+export const createSensorByHub = async (data) => {
   const res = await axios.post(BASE_URL, data, {
     headers: authHeaders(),
   });
   return res.data;
 };
 
-export const updateAlertSetting = async (id, data) => {
+export const updateSensor = async (id, data) => {
   const res = await axios.put(`${BASE_URL}/${id}`, data, {
     headers: authHeaders(),
   });
   return res.data;
 };
 
-export const deleteAlertSetting = async (id) => {
+export const deleteSensor = async (id) => {
   const res = await axios.delete(`${BASE_URL}/${id}`, {
     headers: authHeaders(),
   });
   return res.data;
 };
-
-// Backward-compatible name used by existing pages.
-export const getAlerts = getMyAlertSettings;

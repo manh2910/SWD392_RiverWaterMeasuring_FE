@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const BASE_URL = "https://swdriverapi.onrender.com/api/v1/rivers";
+/*const BASE_URL = "https://swdriverapi.onrender.com/api/v1";*/
+const BASE_URL = "/api/v1";
 
 /* ===== TOKEN ===== */
 
@@ -27,7 +28,7 @@ const authHeader = () => ({
 
 export const getRivers = async () => {
   try {
-    const res = await axios.get(BASE_URL, authHeader());
+    const res = await axios.get(`${BASE_URL}/rivers`, authHeader());
     return res.data;
   } catch (err) {
     console.error("GET RIVERS ERROR:", err);
@@ -39,7 +40,7 @@ export const getRivers = async () => {
 
 export const getRiverDetail = async (id) => {
   try {
-    const res = await axios.get(`${BASE_URL}/${id}/detail`, authHeader());
+    const res = await axios.get(`${BASE_URL}/rivers/${id}/detail`, authHeader());
 
     console.log("RIVER DETAIL API:", res.data); // debug
 
@@ -54,7 +55,7 @@ export const getRiverDetail = async (id) => {
 
 export const createRiver = async (data) => {
   try {
-    const res = await axios.post(BASE_URL, data, authHeader());
+    const res = await axios.post(`${BASE_URL}/rivers`, data, authHeader());
     return res.data;
   } catch (err) {
     console.error("CREATE RIVER ERROR:", err);
@@ -66,10 +67,22 @@ export const createRiver = async (data) => {
 
 export const updateRiver = async (id, data) => {
   try {
-    const res = await axios.put(`${BASE_URL}/${id}`, data, authHeader());
+    const res = await axios.put(`${BASE_URL}/rivers/${id}`, data, authHeader());
     return res.data;
   } catch (err) {
     console.error("UPDATE RIVER ERROR:", err);
+    throw err;
+  }
+};
+
+/* ================= PATCH RIVER ================= */
+
+export const patchRiver = async (id, data) => {
+  try {
+    const res = await axios.patch(`${BASE_URL}/rivers/${id}`, data, authHeader());
+    return res.data;
+  } catch (err) {
+    console.error("PATCH RIVER ERROR:", err);
     throw err;
   }
 };
@@ -78,7 +91,7 @@ export const updateRiver = async (id, data) => {
 
 export const deleteRiver = async (id) => {
   try {
-    const res = await axios.delete(`${BASE_URL}/${id}`, authHeader());
+    const res = await axios.delete(`${BASE_URL}/rivers/${id}`, authHeader());
     return res.data;
   } catch (err) {
     console.error("DELETE RIVER ERROR:", err);

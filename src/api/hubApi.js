@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const BASE_URL = "https://swdriverapi.onrender.com/api/v1";
+/*const BASE_URL = "https://swdriverapi.onrender.com/api/v1";*/
+const BASE_URL = "/api/v1";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -21,9 +22,18 @@ api.interceptors.request.use((config) => {
 });
 
 // ===== GET ALL HUBS =====
+// BE currently has no /hubs list endpoint; flatten hubs from station payload if present.
 export const getHubs = async () => {
-  const res = await api.get("/hubs");
-  return res.data;
+  const res = await api.get("/stations");
+  const stations = Array.isArray(res.data) ? res.data : [];
+
+  return stations.flatMap((station) => {
+    const hubs = Array.isArray(station?.hubs) ? station.hubs : [];
+    return hubs.map((hub) => ({
+      ...hub,
+      stationId: hub.stationId ?? station.stationId,
+    }));
+  });
 };
 
 // ===== GET HUB DETAIL =====
