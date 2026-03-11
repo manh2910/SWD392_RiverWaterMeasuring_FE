@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+
 import { Layout, Input, Badge, Avatar, Dropdown, Space } from "antd";
 import {
   BellOutlined,
@@ -7,7 +8,9 @@ import {
   SettingOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
+
 import { logoutApi } from "../../../api/authApi";
+
 import "./AdminHeader.css";
 
 const { Header } = Layout;
@@ -50,11 +53,11 @@ export default function AdminHeader() {
 
   return (
     <Header className="admin-header">
-
       {/* SEARCH */}
 
       <div className="search-wrapper">
         <SearchOutlined className="search-icon" />
+
         <Input
           placeholder="Search stations, sensors..."
           className="search-input"
@@ -65,7 +68,6 @@ export default function AdminHeader() {
       {/* RIGHT */}
 
       <div className="header-right">
-
         <Badge count={8} size="small">
           <BellOutlined className="header-icon" />
         </Badge>
@@ -76,16 +78,12 @@ export default function AdminHeader() {
           trigger={["click"]}
         >
           <Space className="user-info">
-
             <Avatar size={34} icon={<UserOutlined />} />
 
             <span className="username">Admin</span>
-
           </Space>
         </Dropdown>
-
       </div>
-
     </Header>
   );
 }

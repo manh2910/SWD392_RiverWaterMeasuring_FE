@@ -1,11 +1,39 @@
 import { useEffect, useState } from "react";
-import { Card, Table, Tag, message, Row, Col, Statistic, Button, Space, Modal, Form, Input } from "antd";
-import { LineChartOutlined, UnorderedListOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
-import { getParameters, createParameter, updateParameter, deleteParameter } from "../../../api/paraApi";
+import {
+  Card,
+  Table,
+  Tag,
+  message,
+  Row,
+  Col,
+  Statistic,
+  Button,
+  Space,
+  Modal,
+  Form,
+  Input,
+} from "antd";
+
+import {
+  LineChartOutlined,
+  UnorderedListOutlined,
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons";
+
+import {
+  getParameters,
+  createParameter,
+  updateParameter,
+  deleteParameter,
+} from "../../../api/paraApi";
+
 import "./Parameters.css";
 
 const formatList = (list) => {
   const arr = Array.isArray(list) ? list : [];
+
   return arr.map((p) => ({
     key: p.parameterId,
     parameterId: p.parameterId,
@@ -13,7 +41,9 @@ const formatList = (list) => {
     code: p.code,
     unit: p.defaultUnit,
     description: p.description,
-    type: /ph|do|cond|sal|chem/i.test(p.code || "") ? "Chemical" : "Physical",
+    type: /ph|do|cond|sal|chem/i.test(p.code || "")
+      ? "Chemical"
+      : "Physical",
   }));
 };
 
@@ -22,10 +52,12 @@ export default function Parameters() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+
   const [form] = Form.useForm();
 
   const fetchParameters = async () => {
     setLoading(true);
+
     try {
       const res = await getParameters();
       setData(formatList(res));
@@ -49,18 +81,21 @@ export default function Parameters() {
 
   const openEdit = (record) => {
     setEditingId(record.parameterId);
+
     form.setFieldsValue({
       name: record.name,
       code: record.code,
       defaultUnit: record.unit,
       description: record.description,
     });
+
     setModalOpen(true);
   };
 
   const handleModalOk = async () => {
     try {
       const values = await form.validateFields();
+
       if (editingId) {
         await updateParameter(editingId, values);
         message.success("Parameter updated");
@@ -68,11 +103,17 @@ export default function Parameters() {
         await createParameter(values);
         message.success("Parameter created");
       }
+
       setModalOpen(false);
       fetchParameters();
     } catch (err) {
       if (err.errorFields) return;
-      message.error(err.response?.data?.message || err.message || "Request failed");
+
+      message.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Request failed"
+      );
     }
   };
 
@@ -87,7 +128,9 @@ export default function Parameters() {
           message.success("Parameter deleted");
           fetchParameters();
         } catch (err) {
-          message.error(err.response?.data?.message || "Delete failed");
+          message.error(
+            err.response?.data?.message || "Delete failed"
+          );
         }
       },
     });
@@ -100,8 +143,10 @@ export default function Parameters() {
       key: "name",
       render: (text) => (
         <span>
-          <LineChartOutlined style={{ color: "#1890ff", marginRight: 8 }} />
-          <span className="fw-600">{text}</span>
+          <LineChartOutlined
+            style={{ color: "#666", marginRight: 8 }}
+          />
+          <span style={{ fontWeight: 500 }}>{text}</span>
         </span>
       ),
     },
@@ -109,7 +154,7 @@ export default function Parameters() {
       title: "Code",
       dataIndex: "code",
       key: "code",
-      render: (code) => <Tag color="blue">{code}</Tag>,
+      render: (code) => <Tag color="geekblue">{code}</Tag>,
     },
     {
       title: "Unit",
@@ -120,7 +165,11 @@ export default function Parameters() {
       title: "Type",
       dataIndex: "type",
       key: "type",
-      render: (type) => <Tag color={type === "Physical" ? "green" : "orange"}>{type}</Tag>,
+      render: (type) => (
+        <Tag color={type === "Physical" ? "green" : "orange"}>
+          {type}
+        </Tag>
+      ),
     },
     {
       title: "Description",
@@ -134,8 +183,17 @@ export default function Parameters() {
       width: 120,
       render: (_, record) => (
         <Space size="small">
-          <Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
-          <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            onClick={() => openEdit(record)}
+          />
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record)}
+          />
         </Space>
       ),
     },
@@ -150,25 +208,27 @@ export default function Parameters() {
               title="Total Parameters"
               value={data.length}
               prefix={<UnorderedListOutlined />}
-              valueStyle={{ color: "#1890ff", fontSize: "28px" }}
+              valueStyle={{ color: "#666", fontSize: "26px" }}
             />
           </Card>
         </Col>
+
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
             <Statistic
               title="Physical"
               value={data.filter((p) => p.type === "Physical").length}
-              valueStyle={{ color: "#722ed1", fontSize: "28px" }}
+              valueStyle={{ color: "#52c41a", fontSize: "26px" }}
             />
           </Card>
         </Col>
+
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
             <Statistic
               title="Chemical"
               value={data.filter((p) => p.type === "Chemical").length}
-              valueStyle={{ color: "#fa8c16", fontSize: "28px" }}
+              valueStyle={{ color: "#fa8c16", fontSize: "26px" }}
             />
           </Card>
         </Col>
@@ -178,12 +238,18 @@ export default function Parameters() {
         className="parameters-table-card"
         title={
           <span>
-            <LineChartOutlined style={{ marginRight: 8, color: "#1890ff" }} />
+            <LineChartOutlined
+              style={{ marginRight: 8, color: "#666" }}
+            />
             All Parameters
           </span>
         }
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={openAdd}
+          >
             Add Parameter
           </Button>
         }
@@ -195,7 +261,6 @@ export default function Parameters() {
           pagination={{ pageSize: 10 }}
           rowKey="key"
           size="large"
-          bordered={false}
           className="admin-table"
         />
       </Card>
@@ -209,15 +274,26 @@ export default function Parameters() {
         destroyOnClose
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+          <Form.Item
+            name="name"
+            label="Name"
+            rules={[{ required: true }]}
+          >
             <Input placeholder="e.g. pH" />
           </Form.Item>
-          <Form.Item name="code" label="Code" rules={[{ required: true }]}>
+
+          <Form.Item
+            name="code"
+            label="Code"
+            rules={[{ required: true }]}
+          >
             <Input placeholder="e.g. PH" />
           </Form.Item>
+
           <Form.Item name="defaultUnit" label="Unit">
-            <Input placeholder="e.g. - or mg/L" />
+            <Input placeholder="e.g. mg/L" />
           </Form.Item>
+
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={2} placeholder="Optional" />
           </Form.Item>
