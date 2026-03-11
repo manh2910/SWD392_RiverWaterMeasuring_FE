@@ -1,7 +1,10 @@
 import axios from "axios";
 
-/*const BASE_URL = "https://swdriverapi.onrender.com/api/v1/alert-settings";*/
+/* ALERT SETTINGS BASE */
 const BASE_URL = "/api/v1/alert-settings";
+
+/* ALERT SEND BASE */
+const ALERT_BASE = "/api/v1/alerts";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
@@ -15,6 +18,8 @@ const authHeaders = () => {
     "Content-Type": "application/json",
   };
 };
+
+/* ================= ALERT SETTINGS ================= */
 
 export const getMyAlertSettings = async () => {
   const res = await axios.get(`${BASE_URL}/me`, {
@@ -44,5 +49,15 @@ export const deleteAlertSetting = async (id) => {
   return res.data;
 };
 
-// Backward-compatible name used by existing pages.
+/* ================= SEND ALERT ================= */
+
+export const sendAlert = async (data) => {
+  const res = await axios.post(`${ALERT_BASE}/send`, data, {
+    headers: authHeaders(),
+  });
+
+  return res.data;
+};
+
+/* BACKWARD COMPATIBLE */
 export const getAlerts = getMyAlertSettings;
