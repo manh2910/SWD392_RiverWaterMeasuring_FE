@@ -13,44 +13,42 @@ import HomePage from "./pages/User/HomePage/HomePage";
 import WaterAnalytics from "./pages/User/WaterAnalytics/WaterAnalytics";
 import RiverMap from "./pages/User/RiverMap/RiverMap";
 import WaterQualityMetrics from "./pages/User/WaterQualityMetrics/WaterQualityMetrics";
-import Login from "./pages/User/Auth/Login";
-import Register from "./pages/User/Auth/Register";
+import Auth from "./pages/User/Auth/Auth";
 import AlertSettings from "./pages/User/AlertSettings/AlertSettings";
 import History from "./pages/User/History/History";
 import Profile from "./pages/User/Profile/Profile";
-import ProtectedRoute from "./components/Auth/ProtectedRoute";
 
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* USER PAGES */}
+      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<Auth />} />
+      <Route path="/analytics" element={<WaterAnalytics />} />
+      <Route path="/map" element={<RiverMap />} />
+      <Route path="/quality" element={<WaterQualityMetrics />} />
+      <Route path="/settings" element={<AlertSettings />} />
+      <Route path="/history" element={<History />} />
+      <Route path="/profile" element={<Profile />} />
 
-      <Route element={<ProtectedRoute />}>
-        {/* USER PAGES */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/analytics" element={<WaterAnalytics />} />
-        <Route path="/map" element={<RiverMap />} />
-        <Route path="/quality" element={<WaterQualityMetrics />} />
-        <Route path="/settings" element={<AlertSettings />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/profile" element={<Profile />} />
 
-        {/* ADMIN */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="rivers" element={<Rivers />} />
-          <Route path="stations" element={<Stations />} />
-          <Route path="hubs" element={<Hubs />} />
-          <Route path="sensors" element={<Sensors />} />
-          <Route path="parameters" element={<Parameters />} />
-          <Route path="observations" element={<Observations />} />
-          <Route path="data-packages" element={<DataPackages />} />
-        </Route>
+
+
+      {/* ADMIN */}
+
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="rivers" element={<Rivers />} />
+        <Route path="stations" element={<Stations />} />
+        <Route path="hubs" element={<Hubs />} />
+        <Route path="sensors" element={<Sensors />} />
+        <Route path="parameters" element={<Parameters />} />
+        <Route path="observations" element={<Observations />} />
+        <Route path="data-packages" element={<DataPackages />} />
       </Route>
 
       {/* 404 */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );
 }

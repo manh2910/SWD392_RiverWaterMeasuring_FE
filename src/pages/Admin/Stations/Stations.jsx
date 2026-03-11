@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Card,
   Table,
@@ -20,52 +20,61 @@ import {
   DeleteOutlined,
   ApartmentOutlined,
 } from "@ant-design/icons";
-import { createStation, deleteStation, getStations, updateStation } from "../../../api/stationApi";
 import "./Stations.css";
 
-const normalizeStation = (station, index) => {
-  const id = station?.id ?? station?.stationId ?? station?.stationID ?? index + 1;
-  const riverName =
-    station?.riverName ||
-    station?.river?.name ||
-    station?.river ||
-    "-";
-
-  return {
-    id,
-    key: id,
-    name: station?.name ?? station?.stationName ?? "-",
-    code: station?.code ?? station?.stationCode ?? "-",
-    location: station?.location ?? station?.address ?? "-",
-    river: riverName,
-    sensors: Number(station?.sensors ?? station?.sensorCount ?? 0),
-    status: station?.status ?? "active",
-  };
-};
+const initialData = [
+  {
+    key: 1,
+    name: "Bien Hoa Station",
+    code: "ST-BH-01",
+    location: "Bien Hoa, Dong Nai",
+    river: "Dong Nai River",
+    sensors: 8,
+    status: "active",
+  },
+  {
+    key: 2,
+    name: "Can Tho Station A",
+    code: "ST-CT-A01",
+    location: "Can Tho City",
+    river: "Mekong River",
+    sensors: 12,
+    status: "active",
+  },
+  {
+    key: 3,
+    name: "Can Tho Station B",
+    code: "ST-CT-B02",
+    location: "Can Tho City",
+    river: "Mekong River",
+    sensors: 9,
+    status: "active",
+  },
+  {
+    key: 4,
+    name: "My Tho Station",
+    code: "ST-MT-002",
+    location: "My Tho, Tien Giang",
+    river: "Tien River",
+    sensors: 6,
+    status: "active",
+  },
+  {
+    key: 5,
+    name: "Vung Tau Coastal",
+    code: "ST-VT-003",
+    location: "Vung Tau",
+    river: "Saigon River",
+    sensors: 4,
+    status: "offline",
+  },
+];
 
 export default function Stations() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(initialData);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
-
-  const loadStations = async () => {
-    try {
-      setLoading(true);
-      const response = await getStations();
-      const stations = Array.isArray(response) ? response : response?.data || response?.content || [];
-      setData(stations.map(normalizeStation));
-    } catch (error) {
-      message.error(error?.response?.data?.message || "Failed to load stations");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadStations();
-  }, []);
 
   const openModal = (record = null) => {
     setEditing(record);
@@ -73,32 +82,31 @@ export default function Stations() {
     form.setFieldsValue(record || {});
   };
 
-  const handleOk = async () => {
-    try {
-      const values = await form.validateFields();
-      const payload = {
-        ...values,
-        sensors: Number(values.sensors || 0),
-      };
-
-      if (editing?.id) {
-        await updateStation(editing.id, payload);
+  const handleOk = () => {
+    form.validateFields().then((values) => {
+      if (editing) {
+        setData(
+          data.map((item) =>
+            item.key === editing.key ? { ...item, ...values } : item
+          )
+        );
         message.success("Station updated successfully");
       } else {
-        await createStation(payload);
+        setData([
+          ...data,
+          {
+            key: Date.now(),
+            status: "active",
+            ...values,
+          },
+        ]);
         message.success("Station added successfully");
       }
 
       setOpen(false);
       setEditing(null);
       form.resetFields();
-      loadStations();
-    } catch (error) {
-      if (error?.errorFields) {
-        return;
-      }
-      message.error(error?.response?.data?.message || "Failed to save station");
-    }
+    });
   };
 
   const handleDelete = (record) => {
@@ -106,14 +114,9 @@ export default function Stations() {
       title: "Delete station?",
       content: "This action cannot be undone.",
       okType: "danger",
-      onOk: async () => {
-        try {
-          await deleteStation(record.id);
-          message.success("Station deleted successfully");
-          loadStations();
-        } catch (error) {
-          message.error(error?.response?.data?.message || "Failed to delete station");
-        }
+      onOk: () => {
+        setData(data.filter((i) => i.key !== record.key));
+        message.success("Station deleted successfully");
       },
     });
   };
@@ -254,9 +257,8 @@ export default function Stations() {
         <Table
           columns={columns}
           dataSource={data}
-          loading={loading}
           pagination={{ pageSize: 10 }}
-          rowKey="id"
+          rowKey="key"
           size="large"
           bordered={false}
           className="admin-table"
