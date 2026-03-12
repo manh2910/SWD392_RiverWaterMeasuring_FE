@@ -32,12 +32,11 @@ export default function Register() {
       navigate("/login");
     } catch (error) {
       console.error("Register error:", error);
-
-      if (error.response?.data?.message) {
-        message.error(error.response.data.message);
-      } else {
-        message.error("Registration failed. Please try again.");
-      }
+const msg =
+        error.response?.data?.message ??
+        error.message ??
+        "Registration failed. Please try again.";
+      message.error(msg);
     } finally {
       setLoading(false);
     }

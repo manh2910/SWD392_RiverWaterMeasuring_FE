@@ -1,7 +1,6 @@
 import axios from "axios";
 
-/*const BASE_URL = "https://swdriverapi.onrender.com/api/v1/alerts";*/
-const BASE_URL = "/api/v1/alerts";
+const BASE_URL = "https://swdriverapi.onrender.com/api/v1/alerts";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
