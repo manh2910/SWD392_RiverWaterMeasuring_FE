@@ -54,30 +54,18 @@ export default function Stations() {
 
       setLoading(true);
 
-      const res = await getStations();
+      const list = await getStations();
+      const stations = Array.isArray(list) ? list : [];
 
-      console.log("API RESPONSE:", res);
-
-      const stations = res?.data || res || [];
-
-      console.log("RAW STATIONS:", stations);
-
-      const formatted = stations.map((s) => {
-
-        console.log("STATION ITEM:", s);
-
-        return {
-          id: s.stationId,
-          key: s.stationId,
-          name: s.stationName,
-          lat: s.latitude,
-          lng: s.longitude,
-          riverId: s.riverId,
-          status: s.isActive ? "active" : "offline",
-        };
-      });
-
-      console.log("FORMATTED DATA:", formatted);
+      const formatted = stations.map((s) => ({
+        id: s.stationId ?? s.id,
+        key: s.stationId ?? s.id,
+        name: s.stationName ?? s.name,
+        lat: s.latitude ?? s.lat,
+        lng: s.longitude ?? s.lng,
+        riverId: s.riverId,
+        status: s.isActive !== undefined ? (s.isActive ? "active" : "offline") : (s.status || "offline"),
+      }));
 
       setData(formatted);
 

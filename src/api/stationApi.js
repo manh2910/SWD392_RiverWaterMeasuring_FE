@@ -20,9 +20,25 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ================= GET STATIONS =================
+/** Chuẩn hóa response thành mảng trạm (hỗ trợ nhiều format backend) */
+function toStationList(data) {
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  if (data?.data?.content && Array.isArray(data.data.content)) return data.data.content;
+  if (data?.content && Array.isArray(data.content)) return data.content;
+  if (data?.items && Array.isArray(data.items)) return data.items;
+  return [];
+}
+
+/** GET /stations - Lấy danh sách trạm đo (luôn trả về mảng) */
 export const getStations = async () => {
   const res = await api.get("/stations");
+  return toStationList(res.data);
+};
+
+/** GET /stations/{id} - Lấy chi tiết một trạm */
+export const getStationDetail = async (id) => {
+  const res = await api.get(`/stations/${id}`);
   return res.data;
 };
 

@@ -37,14 +37,14 @@ export default function Sensors() {
   useEffect(() => {
     const loadHubs = async () => {
       try {
-        const stationRes = await getStations();
-        const stations = Array.isArray(stationRes?.data) ? stationRes.data : stationRes || [];
+        const stations = await getStations();
+        const list = Array.isArray(stations) ? stations : [];
 
-        const hubs = stations.flatMap((station) => {
+        const hubs = list.flatMap((station) => {
           const stationHubs = Array.isArray(station?.hubs) ? station.hubs : [];
           return stationHubs.map((hub) => ({
-            label: `${hub.hubCode} (Station ${station.stationName})`,
-            value: hub.hubId,
+            label: `${hub.hubCode ?? hub.code} (${station.stationName ?? station.name ?? "Station"})`,
+            value: hub.hubId ?? hub.id,
           }));
         });
 
