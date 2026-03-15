@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  Avatar,
   Card,
   Table,
   Button,
@@ -13,6 +14,8 @@ import {
   Row,
   Col,
   Statistic,
+  Segmented,
+  Tooltip,
 } from "antd";
 import {
   PlusOutlined,
@@ -21,6 +24,9 @@ import {
   TeamOutlined,
   UserOutlined,
   SafetyCertificateOutlined,
+  ReloadOutlined,
+  MailOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import { registerApi } from "../../../api/authApi";
 import { getUsers, updateUserRole, deleteUser } from "../../../api/userApi";
@@ -45,6 +51,8 @@ export default function Users() {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
 
   const [form] = Form.useForm();
 
@@ -72,6 +80,42 @@ export default function Users() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const filteredData = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+
+    return data.filter((item) => {
+      const roleMatched = roleFilter === "ALL" || item.role === roleFilter;
+      if (!roleMatched) {
+        return false;
+      }
+
+      if (!keyword) {
+        return true;
+      }
+
+      return (
+        item.fullName.toLowerCase().includes(keyword) ||
+        item.email.toLowerCase().includes(keyword)
+      );
+    });
+  }, [data, query, roleFilter]);
+
+  const adminCount = data.filter((u) => u.role === "ADMIN").length;
+  const userCount = data.length - adminCount;
+
+  const getInitials = (fullName) => {
+    if (!fullName || fullName === "-") {
+      return "U";
+    }
+
+    return fullName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("");
+  };
 
   const openCreateModal = () => {
     setEditing(null);
@@ -149,9 +193,11 @@ export default function Users() {
     {
       title: "User",
       dataIndex: "fullName",
-      render: (text) => (
+      render: (text, record) => (
         <Space>
-          <UserOutlined style={{ color: "#1677ff" }} />
+          <Avatar className={record.role === "ADMIN" ? "user-avatar admin" : "user-avatar"}>
+            {getInitials(text)}
+          </Avatar>
           <span className="fw-600">{text}</span>
         </Space>
       ),
@@ -159,6 +205,12 @@ export default function Users() {
     {
       title: "Email",
       dataIndex: "email",
+      render: (email) => (
+        <Space>
+          <MailOutlined style={{ color: "#0ea5e9" }} />
+          <span>{email}</span>
+        </Space>
+      ),
     },
     {
       title: "Role",
@@ -175,18 +227,22 @@ export default function Users() {
       width: 160,
       render: (_, record) => (
         <Space>
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => openEditModal(record)}
-          />
+          <Tooltip title="Edit role">
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              onClick={() => openEditModal(record)}
+            />
+          </Tooltip>
 
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record)}
-          />
+          <Tooltip title="Delete user">
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record)}
+            />
+          </Tooltip>
         </Space>
       ),
     },
@@ -210,7 +266,7 @@ export default function Users() {
           <Card className="stat-card">
             <Statistic
               title="Admins"
-              value={data.filter((u) => u.role === "ADMIN").length}
+              value={adminCount}
               prefix={<SafetyCertificateOutlined />}
               valueStyle={{ color: "#faad14" }}
             />
@@ -221,7 +277,7 @@ export default function Users() {
           <Card className="stat-card">
             <Statistic
               title="Users"
-              value={data.filter((u) => u.role !== "ADMIN").length}
+              value={userCount}
               prefix={<UserOutlined />}
               valueStyle={{ color: "#52c41a" }}
             />
@@ -232,24 +288,50 @@ export default function Users() {
       <Card
         className="users-table-card"
         title={
-          <span>
-            <TeamOutlined style={{ marginRight: 8 }} />
+          <Space>
+            <TeamOutlined />
             User Management
-          </span>
+          </Space>
         }
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-            Add User
-          </Button>
+          <Space wrap>
+            <Button icon={<ReloadOutlined />} onClick={fetchUsers}>
+              Refresh
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+              Add User
+            </Button>
+          </Space>
         }
       >
+        <div className="users-toolbar">
+          <Input
+            allowClear
+            className="users-search"
+            placeholder="Search by name or email"
+            prefix={<SearchOutlined />}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+
+          <Segmented
+            value={roleFilter}
+            onChange={setRoleFilter}
+            options={[
+              { label: `All (${data.length})`, value: "ALL" },
+              { label: `Admin (${adminCount})`, value: "ADMIN" },
+              { label: `User (${userCount})`, value: "USER" },
+            ]}
+          />
+        </div>
+
         <Table
           columns={columns}
-          dataSource={data}
+          dataSource={filteredData}
           loading={loading}
           rowKey="key"
           className="admin-table"
-          pagination={{ pageSize: 10 }}
+          pagination={{ pageSize: 8, showSizeChanger: false }}
         />
       </Card>
 
@@ -266,11 +348,26 @@ export default function Users() {
         destroyOnClose
       >
         <Form form={form} layout="vertical">
-          <Form.Item label="Full Name" name="fullName">
+          <Form.Item
+            label="Full Name"
+            name="fullName"
+            rules={!editing ? [{ required: true, message: "Please enter full name" }] : []}
+          >
             <Input disabled={!!editing} placeholder="Enter full name" />
           </Form.Item>
 
-          <Form.Item label="Email" name="email">
+          <Form.Item
+            label="Email"
+            name="email"
+            rules={
+              !editing
+                ? [
+                    { required: true, message: "Please enter email" },
+                    { type: "email", message: "Invalid email format" },
+                  ]
+                : []
+            }
+          >
             <Input disabled={!!editing} placeholder="Enter email" />
           </Form.Item>
 

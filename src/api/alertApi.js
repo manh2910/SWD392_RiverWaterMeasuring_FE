@@ -1,10 +1,10 @@
 import axios from "axios";
 
 /* ALERT SETTINGS BASE */
-const BASE_URL = "/api/v1/alert-settings";
+const BASE_URL = "https://swdriverapi.onrender.com/api/v1/alert-settings";
 
 /* ALERT SEND BASE */
-const ALERT_BASE = "/api/v1/alerts";
+const ALERT_BASE = "https://swdriverapi.onrender.com/api/v1/alerts";
 
 const authHeaders = () => {
   const token = localStorage.getItem("token");
