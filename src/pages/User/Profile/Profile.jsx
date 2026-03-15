@@ -38,16 +38,35 @@ export default function Profile() {
     loadProfile();
   }, [form]);
 
-  const onFinish = async (values) => {
+  const handleSave = async () => {
+    if (!isEditing) {
+      return;
+    }
+
+    let values;
+    try {
+      values = await form.validateFields(["fullName"]);
+    } catch {
+      return;
+    }
+
+    const nextName = (values?.fullName || "").trim();
+    const currentName = (profile?.fullName || "").trim();
+
+    if (nextName === currentName) {
+      message.info("No changes to save");
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const updated = await updateMyProfile({ fullName: values.fullName });
+      const updated = await updateMyProfile({ fullName: nextName });
       setProfile(updated);
       form.setFieldsValue({
-        email: updated?.email || values.email,
-        fullName: updated?.fullName || values.fullName,
-        role: updated?.role || values.role,
+        email: updated?.email || profile?.email || "",
+        fullName: updated?.fullName || nextName,
+        role: updated?.role || profile?.role || "",
       });
       message.success("Profile updated successfully");
       setIsEditing(false);
@@ -57,6 +76,15 @@ export default function Profile() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCancelEdit = () => {
+    form.setFieldsValue({
+      email: profile?.email || "",
+      fullName: profile?.fullName || "",
+      role: profile?.role || "",
+    });
+    setIsEditing(false);
   };
 
   return (
@@ -75,7 +103,7 @@ export default function Profile() {
 
             <Col xs={24} md={16}>
               <h2>Account Information</h2>
-              <Form form={form} layout="vertical" onFinish={onFinish}>
+              <Form form={form} layout="vertical">
                 <Form.Item name="email" label="Email" rules={[{ required: true, type: "email" }]}>
                   <Input disabled />
                 </Form.Item>
@@ -91,13 +119,15 @@ export default function Profile() {
                 <Form.Item>
                   {isEditing ? (
                     <>
-                      <Button type="primary" htmlType="submit" loading={saving} style={{ marginRight: 8 }}>
+                      <Button type="primary" htmlType="button" loading={saving} style={{ marginRight: 8 }} onClick={handleSave}>
                         Save
                       </Button>
-                      <Button onClick={() => setIsEditing(false)}>Cancel</Button>
+                      <Button htmlType="button" onClick={handleCancelEdit}>
+                        Cancel
+                      </Button>
                     </>
                   ) : (
-                    <Button type="primary" onClick={() => setIsEditing(true)}>
+                    <Button type="primary" htmlType="button" onClick={() => setIsEditing(true)}>
                       Edit Profile
                     </Button>
                   )}
