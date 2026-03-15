@@ -32,3 +32,18 @@ export const getRiverStatus = async (riverId) => {
   });
   return res.data;
 };
+
+export const getQualityStats = async () => {
+  const res = await axios.get(`${BASE_URL}/stats`, {
+    headers: authHeaders(),
+  });
+  return res.data;
+};
+
+export const getObservationsPage = async (params = {}) => {
+  const res = await axios.get(BASE_URL, {
+    headers: authHeaders(),
+    params,
+  });
+  return res.data;
+};

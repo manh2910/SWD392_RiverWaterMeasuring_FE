@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, Table, Row, Col, Statistic, Select, DatePicker, Space, message } from "antd";
+import { Card, Table, Row, Col, Statistic, Select, Space, message } from "antd";
 import {
   BarChartOutlined,
   CheckCircleOutlined,
@@ -7,10 +7,9 @@ import {
   CloseCircleOutlined,
 } from "@ant-design/icons";
 import { getStations } from "../../../api/stationApi";
-import { getObservationHistory } from "../../../api/observationApi";
+import { getQualityStats, getObservationsPage } from "../../../api/observationApi";
 import "./Observations.css";
 
-const { RangePicker } = DatePicker;
 
 const mapQuality = (flag) => {
   const value = (flag || "").toUpperCase();
@@ -29,57 +28,50 @@ const mapQuality = (flag) => {
 export default function Observations() {
   const [stations, setStations] = useState([]);
   const [selectedStationId, setSelectedStationId] = useState(null);
-  const [dateRange, setDateRange] = useState(null);
-  const [parameterCode, setParameterCode] = useState(undefined);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({ total: 0, goodCount: 0, suspectCount: 0, badCount: 0 });
 
   useEffect(() => {
-    const loadStations = async () => {
+    const init = async () => {
       try {
-        const stationRes = await getStations();
+        const [stationRes, statsRes] = await Promise.all([
+          getStations(),
+          getQualityStats(),
+        ]);
         const stationList = Array.isArray(stationRes?.data) ? stationRes.data : stationRes || [];
         setStations(stationList);
-
         if (stationList.length > 0) {
           setSelectedStationId(stationList[0].stationId);
         }
+        if (statsRes) {
+          setStats(statsRes);
+        }
       } catch (err) {
-        console.error("LOAD STATIONS ERROR:", err);
-        message.error("Failed to load stations");
+        console.error("INIT ERROR:", err);
+        message.error("Failed to load data");
       }
     };
 
-    loadStations();
+    init();
   }, []);
 
   useEffect(() => {
     const loadObservations = async () => {
-      if (!selectedStationId) {
-        return;
-      }
+      if (!selectedStationId) return;
 
       setLoading(true);
-
       try {
-        const params = {};
+        const res = await getObservationsPage({
+          stationId: selectedStationId,
+          size: 10,
+          sort: "observedAt,desc",
+        });
 
-        if (dateRange?.[0]) {
-          params.startDate = dateRange[0].toISOString();
-        }
+        const stationName = stations.find((s) => s.stationId === selectedStationId)?.stationName;
+        const items = res?.content ?? (Array.isArray(res) ? res : []);
 
-        if (dateRange?.[1]) {
-          params.endDate = dateRange[1].toISOString();
-        }
-
-        if (parameterCode) {
-          params.parameterCode = parameterCode;
-        }
-
-        const res = await getObservationHistory(selectedStationId, params);
-        const stationName = stations.find((station) => station.stationId === selectedStationId)?.stationName;
-
-        const rows = (Array.isArray(res) ? res : []).map((item) => ({
+        const rows = items.map((item) => ({
           key: item.observationId,
           date: item.observedAt ? new Date(item.observedAt).toLocaleString() : "-",
           station: stationName || `Station ${selectedStationId}`,
@@ -100,7 +92,7 @@ export default function Observations() {
     };
 
     loadObservations();
-  }, [selectedStationId, dateRange, parameterCode, stations]);
+  }, [selectedStationId, stations]);
 
   const columns = [
     {
@@ -144,10 +136,6 @@ export default function Observations() {
     },
   ];
 
-  const goodCount = data.filter((o) => o.status === "good").length;
-  const suspectCount = data.filter((o) => o.status === "suspect").length;
-  const badCount = data.filter((o) => o.status === "bad").length;
-
   return (
     <div className="observations-page">
       <Row gutter={16} style={{ marginBottom: 24 }}>
@@ -155,7 +143,7 @@ export default function Observations() {
           <Card className="stat-card">
             <Statistic
               title="Total Observations"
-              value={data.length}
+              value={stats.total}
               prefix={<BarChartOutlined />}
               valueStyle={{ color: "#1890ff", fontSize: "28px" }}
             />
@@ -163,58 +151,39 @@ export default function Observations() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
-            <Statistic title="Good Quality" value={goodCount} valueStyle={{ color: "#52c41a", fontSize: "28px" }} />
+            <Statistic title="Good Quality" value={stats.goodCount} valueStyle={{ color: "#52c41a", fontSize: "28px" }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
-            <Statistic title="Suspect" value={suspectCount} valueStyle={{ color: "#faad14", fontSize: "28px" }} />
+            <Statistic title="Suspect" value={stats.suspectCount} valueStyle={{ color: "#faad14", fontSize: "28px" }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
-            <Statistic title="Bad Quality" value={badCount} valueStyle={{ color: "#f5222d", fontSize: "28px" }} />
+            <Statistic title="Bad Quality" value={stats.badCount} valueStyle={{ color: "#f5222d", fontSize: "28px" }} />
           </Card>
         </Col>
       </Row>
 
       <Card
         className="observations-table-card"
-        title={<span><BarChartOutlined style={{ marginRight: 8, color: "#1890ff" }} />All Observations</span>}
+        title={<span><BarChartOutlined style={{ marginRight: 8, color: "#1890ff" }} />10 Latest Observations</span>}
         extra={
-          <Space wrap>
-            <Select
-              style={{ minWidth: 220 }}
-              value={selectedStationId}
-              onChange={setSelectedStationId}
-              placeholder="Select station"
-              options={stations.map((station) => ({ label: station.stationName, value: station.stationId }))}
-            />
-            <RangePicker value={dateRange} onChange={setDateRange} showTime />
-            <Select
-              allowClear
-              style={{ minWidth: 140 }}
-              placeholder="Parameter"
-              value={parameterCode}
-              onChange={setParameterCode}
-              options={[
-                { label: "pH", value: "PH" },
-                { label: "Dissolved Oxygen", value: "DO" },
-                { label: "Conductivity", value: "COND" },
-                { label: "Flow Velocity", value: "FV" },
-                { label: "Water Level", value: "WL" },
-                { label: "Turbidity", value: "TURB" },
-                { label: "Temperature", value: "TEMP" },
-              ]}
-            />
-          </Space>
+          <Select
+            style={{ minWidth: 220 }}
+            value={selectedStationId}
+            onChange={setSelectedStationId}
+            placeholder="Select station"
+            options={stations.map((station) => ({ label: station.stationName, value: station.stationId }))}
+          />
         }
       >
         <Table
           columns={columns}
           dataSource={data}
           loading={loading}
-          pagination={{ pageSize: 10 }}
+          pagination={false}
           rowKey="key"
           size="large"
           bordered={false}
