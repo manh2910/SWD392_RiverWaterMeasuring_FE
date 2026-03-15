@@ -98,6 +98,7 @@ export default function Auth() {
             <Form.Item style={{ marginTop: 20 }}>
               <Button
                 type="primary"
+                danger
                 htmlType="submit"
                 block
                 size="large"

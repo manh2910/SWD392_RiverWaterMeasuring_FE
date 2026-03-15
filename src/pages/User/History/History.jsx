@@ -17,12 +17,12 @@ export default function History() {
   useEffect(() => {
     const loadStations = async () => {
       try {
-        const stationRes = await getStations();
-        const stationList = Array.isArray(stationRes?.data) ? stationRes.data : stationRes || [];
-        setStations(stationList);
+        const stationList = await getStations();
+        setStations(Array.isArray(stationList) ? stationList : []);
 
-        if (stationList.length > 0) {
-          setSelectedStationId(stationList[0].stationId);
+        if (stationList?.length > 0) {
+          const first = stationList[0];
+          setSelectedStationId(first.stationId ?? first.id);
         }
       } catch (error) {
         console.error("LOAD STATIONS ERROR:", error);
@@ -43,13 +43,15 @@ export default function History() {
 
       try {
         const history = await getObservationHistory(selectedStationId);
+        const st = stations.find((s) => (s.stationId ?? s.id) === selectedStationId);
+        const stationName = st?.stationName ?? st?.name ?? `Station ${selectedStationId}`;
         const rows = (Array.isArray(history) ? history : []).map((item) => ({
-          key: item.observationId,
-          date: item.observedAt ? new Date(item.observedAt).toLocaleString() : "-",
-          station: stations.find((s) => s.stationId === selectedStationId)?.stationName || `Station ${selectedStationId}`,
-          metric: item.parameterName || item.parameterCode,
+          key: item.observationId ?? item.id,
+          date: (item.observedAt ?? item.timestamp) ? new Date(item.observedAt ?? item.timestamp).toLocaleString() : "-",
+          station: stationName,
+          metric: item.parameterName ?? item.parameterCode,
           value: `${item.value ?? "-"} ${item.unit || ""}`.trim(),
-          quality: item.qualityFlag || "-",
+          quality: item.qualityFlag ?? "-",
         }));
 
         setData(rows);
@@ -85,9 +87,9 @@ export default function History() {
               value={selectedStationId}
               onChange={setSelectedStationId}
               placeholder="Select station"
-              options={stations.map((station) => ({
-                label: station.stationName,
-                value: station.stationId,
+              options={stations.map((s) => ({
+                label: s.stationName ?? s.name ?? `Station ${s.stationId ?? s.id}`,
+                value: s.stationId ?? s.id,
               }))}
             />
           }

@@ -253,6 +253,21 @@
   overflow: hidden;
 }
 
+.river-map-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+}
+
+[data-theme="dark"] .river-map-loading-overlay {
+  background: rgba(0, 0, 0, 0.5);
+}
+
 .river-map-leaflet {
   height: 100%;
   min-height: 420px;

@@ -1,13 +1,19 @@
-import { useEffect, useState } from "react";
-import { Card, Table, Row, Col, Statistic, Select, DatePicker, Space, message } from "antd";
+import { useEffect, useState, useCallback } from "react";
+import { Card, Table, Row, Col, Statistic, Select, DatePicker, Space, message, Button, Popconfirm } from "antd";
 import {
   BarChartOutlined,
   CheckCircleOutlined,
   WarningOutlined,
   CloseCircleOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { getStations } from "../../../api/stationApi";
-import { getObservationHistory } from "../../../api/observationApi";
+import { getParameters } from "../../../api/paraApi";
+import {
+  getObservationHistory,
+  updateObservationFlag,
+  deleteObservation,
+} from "../../../api/observationApi";
 import "./Observations.css";
 
 const { RangePicker } = DatePicker;
@@ -26,23 +32,47 @@ const mapQuality = (flag) => {
   return "bad";
 };
 
+const QUALITY_OPTIONS = [
+  { label: "Good", value: "GOOD" },
+  { label: "Suspect", value: "SUSPECT" },
+  { label: "Bad", value: "BAD" },
+];
+
+function toObservationList(res) {
+  if (Array.isArray(res)) return res;
+  if (res?.data && Array.isArray(res.data)) return res.data;
+  if (res?.data?.content && Array.isArray(res.data.content)) return res.data.content;
+  if (res?.content && Array.isArray(res.content)) return res.content;
+  if (res?.observations && Array.isArray(res.observations)) return res.observations;
+  if (res?.items && Array.isArray(res.items)) return res.items;
+  if (res?.results && Array.isArray(res.results)) return res.results;
+  return [];
+}
+
+function getStationId(station) {
+  return station?.stationId ?? station?.id;
+}
+
 export default function Observations() {
   const [stations, setStations] = useState([]);
   const [selectedStationId, setSelectedStationId] = useState(null);
   const [dateRange, setDateRange] = useState(null);
   const [parameterCode, setParameterCode] = useState(undefined);
+  const [parameterOptions, setParameterOptions] = useState([]);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const loadStations = async () => {
       try {
-        const stationRes = await getStations();
-        const stationList = Array.isArray(stationRes?.data) ? stationRes.data : stationRes || [];
-        setStations(stationList);
-
-        if (stationList.length > 0) {
-          setSelectedStationId(stationList[0].stationId);
+        const list = await getStations();
+        setStations(Array.isArray(list) ? list : []);
+        if (list?.length > 0) {
+          setSelectedStationId((prev) => {
+            const firstId = getStationId(list[0]);
+            if (prev && list.some((s) => getStationId(s) === prev)) return prev;
+            return firstId;
+          });
         }
       } catch (err) {
         console.error("LOAD STATIONS ERROR:", err);
@@ -54,53 +84,91 @@ export default function Observations() {
   }, []);
 
   useEffect(() => {
-    const loadObservations = async () => {
-      if (!selectedStationId) {
-        return;
-      }
-
-      setLoading(true);
-
+    const loadParameters = async () => {
       try {
-        const params = {};
-
-        if (dateRange?.[0]) {
-          params.startDate = dateRange[0].toISOString();
-        }
-
-        if (dateRange?.[1]) {
-          params.endDate = dateRange[1].toISOString();
-        }
-
-        if (parameterCode) {
-          params.parameterCode = parameterCode;
-        }
-
-        const res = await getObservationHistory(selectedStationId, params);
-        const stationName = stations.find((station) => station.stationId === selectedStationId)?.stationName;
-
-        const rows = (Array.isArray(res) ? res : []).map((item) => ({
-          key: item.observationId,
-          date: item.observedAt ? new Date(item.observedAt).toLocaleString() : "-",
-          station: stationName || `Station ${selectedStationId}`,
-          parameter: item.parameterName || item.parameterCode,
-          value: item.value,
-          unit: item.unit,
-          qualityFlag: item.qualityFlag,
-          status: mapQuality(item.qualityFlag),
-        }));
-
-        setData(rows);
-      } catch (err) {
-        console.error("LOAD OBSERVATIONS ERROR:", err);
-        message.error("Failed to load observations");
-      } finally {
-        setLoading(false);
+        const res = await getParameters();
+        const list = toObservationList(Array.isArray(res) ? res : res?.data ?? []);
+        setParameterOptions(
+          list.map((p) => ({ label: p.name || p.code || p.parameterId, value: p.code || p.parameterId }))
+        );
+      } catch {
+        setParameterOptions([
+          { label: "pH", value: "PH" },
+          { label: "Dissolved Oxygen", value: "DO" },
+          { label: "Conductivity", value: "COND" },
+          { label: "Water Level", value: "WL" },
+          { label: "Turbidity", value: "TURB" },
+          { label: "Temperature", value: "TEMP" },
+        ]);
       }
     };
+    loadParameters();
+  }, []);
 
-    loadObservations();
+  const loadObservations = useCallback(async () => {
+    if (!selectedStationId) return;
+    setLoading(true);
+    try {
+      const params = {};
+      if (dateRange?.[0]) params.startDate = dateRange[0].toISOString();
+      if (dateRange?.[1]) params.endDate = dateRange[1].toISOString();
+      if (parameterCode) params.parameterCode = parameterCode;
+
+      const res = await getObservationHistory(selectedStationId, params);
+      const list = toObservationList(res);
+      const stationObj = stations.find((s) => getStationId(s) === selectedStationId);
+      const stationName = stationObj?.stationName ?? stationObj?.name;
+
+      const rows = list.map((item) => {
+        const obsId = item.observationId ?? item.id;
+        const dateRaw = item.observedAt ?? item.timestamp ?? item.createdAt ?? item.date;
+        return {
+          key: obsId,
+          observationId: obsId,
+          date: dateRaw ? new Date(dateRaw).toLocaleString() : "-",
+          station: stationName || `Station ${selectedStationId}`,
+          parameter: item.parameterName ?? item.parameterCode ?? item.parameter,
+          value: item.value ?? item.measuredValue,
+          unit: item.unit ?? item.defaultUnit,
+          qualityFlag: item.qualityFlag ?? item.flag,
+          status: mapQuality(item.qualityFlag ?? item.flag),
+        };
+      });
+      setData(rows);
+    } catch (err) {
+      console.error("LOAD OBSERVATIONS ERROR:", err);
+      message.error("Failed to load observations");
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
   }, [selectedStationId, dateRange, parameterCode, stations]);
+
+  useEffect(() => {
+    loadObservations();
+  }, [loadObservations]);
+
+  const handleFlagChange = async (observationId, qualityFlag) => {
+    try {
+      await updateObservationFlag(observationId, { qualityFlag });
+      message.success("Quality flag updated");
+      loadObservations();
+    } catch (err) {
+      console.error("UPDATE FLAG ERROR:", err);
+      message.error("Failed to update quality flag");
+    }
+  };
+
+  const handleDelete = async (observationId) => {
+    try {
+      await deleteObservation(observationId);
+      message.success("Observation deleted");
+      loadObservations();
+    } catch (err) {
+      console.error("DELETE OBSERVATION ERROR:", err);
+      message.error("Failed to delete observation");
+    }
+  };
 
   const columns = [
     {
@@ -134,13 +202,35 @@ export default function Observations() {
         if (status === "good") {
           return <span style={{ color: "#52c41a" }}><CheckCircleOutlined /> GOOD</span>;
         }
-
         if (status === "suspect") {
           return <span style={{ color: "#faad14" }}><WarningOutlined /> SUSPECT</span>;
         }
-
         return <span style={{ color: "#f5222d" }}><CloseCircleOutlined /> BAD</span>;
       },
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      width: 200,
+      render: (_, record) => (
+        <Space>
+          <Select
+            size="small"
+            style={{ width: 100 }}
+            value={record.qualityFlag || "GOOD"}
+            options={QUALITY_OPTIONS}
+            onChange={(value) => handleFlagChange(record.observationId, value)}
+          />
+          <Popconfirm
+            title="Delete this observation?"
+            onConfirm={() => handleDelete(record.observationId)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button type="text" danger size="small" icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
@@ -188,24 +278,16 @@ export default function Observations() {
               value={selectedStationId}
               onChange={setSelectedStationId}
               placeholder="Select station"
-              options={stations.map((station) => ({ label: station.stationName, value: station.stationId }))}
+              options={stations.map((s) => ({ label: s.stationName ?? s.name ?? `Station ${getStationId(s)}`, value: getStationId(s) }))}
             />
             <RangePicker value={dateRange} onChange={setDateRange} showTime />
             <Select
               allowClear
-              style={{ minWidth: 140 }}
+              style={{ minWidth: 160 }}
               placeholder="Parameter"
               value={parameterCode}
               onChange={setParameterCode}
-              options={[
-                { label: "pH", value: "PH" },
-                { label: "Dissolved Oxygen", value: "DO" },
-                { label: "Conductivity", value: "COND" },
-                { label: "Flow Velocity", value: "FV" },
-                { label: "Water Level", value: "WL" },
-                { label: "Turbidity", value: "TURB" },
-                { label: "Temperature", value: "TEMP" },
-              ]}
+              options={parameterOptions}
             />
           </Space>
         }
@@ -219,6 +301,11 @@ export default function Observations() {
           size="large"
           bordered={false}
           className="admin-table"
+          locale={{
+            emptyText: selectedStationId
+              ? "Chưa có observation nào cho trạm này. Thử bỏ lọc ngày/parameter hoặc chọn trạm khác."
+              : "Chọn trạm để xem dữ liệu.",
+          }}
         />
       </Card>
     </div>
