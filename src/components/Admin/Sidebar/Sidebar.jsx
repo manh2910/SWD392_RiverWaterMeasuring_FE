@@ -9,6 +9,7 @@ import {
   DatabaseOutlined,
   InboxOutlined,
   HomeOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation } from "react-router-dom";
 import "./Sidebar.css";
@@ -78,6 +79,12 @@ export default function Sidebar() {
       icon: <InboxOutlined />,
       label: "Data Packages",
       onClick: () => navigate("/admin/data-packages"),
+    },
+    {
+      key: "/admin/users",
+      icon: <TeamOutlined />,
+      label: "Users",
+      onClick: () => navigate("/admin/users"),
     },
   ];
 

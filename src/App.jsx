@@ -9,6 +9,7 @@ import Sensors from "./pages/Admin/Sensors/Sensors";
 import Parameters from "./pages/Admin/Parameters/Parameters";
 import Observations from "./pages/Admin/Observations/Observations";
 import DataPackages from "./pages/Admin/DataPackages/DataPackages";
+import Users from "./pages/Admin/Users/Users";
 import HomePage from "./pages/User/HomePage/HomePage";
 import WaterAnalytics from "./pages/User/WaterAnalytics/WaterAnalytics";
 import RiverMap from "./pages/User/RiverMap/RiverMap";
@@ -24,6 +25,21 @@ const RequireAuth = ({ children }) => {
 
   if (!token) {
     return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
+const RequireAdmin = ({ children }) => {
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if ((role || "").toUpperCase() !== "ADMIN") {
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -100,9 +116,9 @@ function App() {
       <Route
         path="/admin"
         element={
-          <RequireAuth>
+          <RequireAdmin>
             <AdminLayout />
-          </RequireAuth>
+          </RequireAdmin>
         }
       >
         <Route index element={<Dashboard />} />
@@ -113,6 +129,7 @@ function App() {
         <Route path="parameters" element={<Parameters />} />
         <Route path="observations" element={<Observations />} />
         <Route path="data-packages" element={<DataPackages />} />
+        <Route path="users" element={<Users />} />
       </Route>
 
       {/* 404 */}

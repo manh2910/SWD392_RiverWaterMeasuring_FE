@@ -73,4 +73,6 @@ export const registerApi = async (data) => {
 // ================== LOGOUT ==================
 export const logoutApi = () => {
   localStorage.removeItem("token");
+  localStorage.removeItem("role");
+  localStorage.removeItem("userEmail");
 };

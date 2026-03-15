@@ -1,0 +1,53 @@
+.users-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.users-page .stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.users-table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.users-table-card .ant-card-head {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table .ant-table-thead > tr > th {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-bottom: 2px solid var(--border-color);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+}
+
+.admin-table .ant-table-tbody > tr > td {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-table .ant-table-tbody > tr:hover > td {
+  background: rgba(24, 144, 255, 0.04);
+}
+
+.fw-600 {
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .users-page {
+    gap: 16px;
+  }
+}
