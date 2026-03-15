@@ -21,6 +21,7 @@ import AppHeader from "../../../components/User/Header/Header";
 import AppFooter from "../../../components/User/Footer/Footer";
 
 import { getRivers, getRiverDetail } from "../../../api/riverApi";
+import { getRiverPrediction } from "../../../api/predictApi"; // 👈 thêm
 
 const { Content } = Layout;
 const { Option } = Select;
@@ -76,16 +77,23 @@ const WaterAnalytics = () => {
     try{
 
       const detail = await getRiverDetail(id);
+      const predict = await getRiverPrediction(id); // 👈 gọi prediction
 
       // ===== WATER LEVEL HISTORY =====
 
       const history = detail.waterLevelHistory || [];
+      const predictData = predict.chartData || [];
 
-      const formattedWater = history.map(h=>({
+      const formattedWater = history.map((h,index)=>({
 
         date: new Date(h.timestamp).toLocaleDateString(),
+
         level: h.value,
-        lunar: null // chưa có dữ liệu
+
+        predicted:
+          predictData[index]
+            ? predictData[index].predictedValue
+            : null
 
       }));
 
@@ -162,8 +170,6 @@ const WaterAnalytics = () => {
             Water Analytics Dashboard
           </h1>
 
-          {/* SELECT RIVER */}
-
           <Select
             value={riverId}
             style={{width:300,marginBottom:30}}
@@ -236,16 +242,16 @@ const WaterAnalytics = () => {
                   dataKey="level"
                   stroke="#2563eb"
                   strokeWidth={3}
-                  name="Water Level (m)"
+                  name="Actual Water Level"
                 />
 
                 <Line
                   type="monotone"
-                  dataKey="lunar"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
+                  dataKey="predicted"
+                  stroke="#ef4444"
+                  strokeWidth={3}
                   strokeDasharray="5 5"
-                  name="Lunar Prediction (Coming Soon)"
+                  name="Predicted Level"
                 />
 
               </LineChart>
