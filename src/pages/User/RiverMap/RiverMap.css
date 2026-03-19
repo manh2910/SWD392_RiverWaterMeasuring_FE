@@ -1,3 +1,17 @@
+/* Icon định vị cho marker (Leaflet divIcon) */
+.river-map-location-marker {
+  background: none !important;
+  border: none !important;
+}
+.river-map-location-marker-inner {
+  display: block;
+  line-height: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+.river-map-location-marker-inner svg {
+  display: block;
+}
+
 .river-map-page {
   padding: 32px 60px 48px;
   background: var(--page-bg);

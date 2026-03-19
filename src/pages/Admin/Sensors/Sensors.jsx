@@ -22,6 +22,7 @@ import {
   RadarChartOutlined,
 } from "@ant-design/icons";
 import { getStations } from "../../../api/stationApi";
+import { getHubs } from "../../../api/hubApi";
 import { getSensorsByHub, createSensorByHub, updateSensor, deleteSensor } from "../../../api/sensorApi";
 import "./Sensors.css";
 
@@ -48,10 +49,27 @@ export default function Sensors() {
           }));
         });
 
-        setHubOptions(hubs);
-        if (hubs.length > 0) {
-          setSelectedHubId(hubs[0].value);
+        // Fallback: nếu API stations không trả về `hubs`, lấy hubs từ /hubs
+        if (hubs.length === 0) {
+          const hubRes = await getHubs();
+          const allHubs = Array.isArray(hubRes?.content)
+            ? hubRes.content
+            : Array.isArray(hubRes)
+              ? hubRes
+              : [];
+
+          const mapped = allHubs.map((hub) => ({
+            label: `${hub.hubCode ?? "Hub"}${hub.hubId != null ? ` (ID: ${hub.hubId})` : ""}`,
+            value: hub.hubId,
+          }));
+
+          setHubOptions(mapped);
+          if (mapped.length > 0) setSelectedHubId(mapped[0].value);
+          return;
         }
+
+        setHubOptions(hubs);
+        if (hubs.length > 0) setSelectedHubId(hubs[0].value);
       } catch (err) {
         console.error("LOAD HUB OPTIONS ERROR:", err);
       }
@@ -62,7 +80,7 @@ export default function Sensors() {
 
   useEffect(() => {
     const loadSensors = async () => {
-      if (!selectedHubId) {
+      if (selectedHubId == null) {
         setData([]);
         return;
       }
@@ -85,7 +103,9 @@ export default function Sensors() {
         setData(rows);
       } catch (err) {
         console.error("LOAD SENSORS ERROR:", err);
-        message.error("Failed to load sensors");
+        const status = err?.response?.status;
+        const msg = err?.response?.data?.message || err?.message || "Unknown error";
+        message.error(`Failed to load sensors${status ? ` (HTTP ${status})` : ""}: ${msg}`);
       } finally {
         setLoading(false);
       }

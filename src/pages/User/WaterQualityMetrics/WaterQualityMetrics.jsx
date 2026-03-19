@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { Layout, Button, Select } from "antd";
+import React, { useEffect, useMemo, useState } from "react";
+import { Layout, Button, Select, Spin, Empty, message } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -20,37 +20,10 @@ import {
 } from "recharts";
 import AppHeader from "../../../components/User/Header/Header";
 import AppFooter from "../../../components/User/Footer/Footer";
+import { getRivers, getRiverDetail } from "../../../api/riverApi";
 import "./WaterQualityMetrics.css";
 
 const { Content } = Layout;
-
-const RIVERS = [
-  { key: "Sông Hồng", label: "Sông Hồng", region: "Bắc Bộ" },
-  { key: "Sông Mê Kông", label: "Sông Mê Kông", region: "Đồng bằng sông Cửu Long" },
-  { key: "Sông Đồng Nai", label: "Sông Đồng Nai", region: "Nam Bộ" },
-  { key: "Sông Mã", label: "Sông Mã", region: "Bắc Trung Bộ" },
-  { key: "Sông Lam", label: "Sông Lam", region: "Bắc Trung Bộ" },
-  { key: "Sông Thái Bình", label: "Sông Thái Bình", region: "Bắc Bộ" },
-];
-
-function hashSeed(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i += 1) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function makeSeries(seed, len, base, amp) {
-  const out = [];
-  for (let i = 1; i <= len; i += 1) {
-    const wave = Math.sin((i + seed % 10) / 2) * amp;
-    const noise = (((seed >> (i % 8)) & 7) - 3) * (amp * 0.08);
-    out.push(Number((base + wave + noise).toFixed(2)));
-  }
-  return out;
-}
 
 function useQueryRiver() {
   const { search } = useLocation();
@@ -61,53 +34,133 @@ function useQueryRiver() {
   }, [search]);
 }
 
+const normalizeCode = (code) => String(code || "").trim().toUpperCase();
+
+const getParamValue = (statusList, codeCandidates = []) => {
+  for (const code of codeCandidates) {
+    const found = statusList.find((item) => normalizeCode(item?.parameterCode) === code);
+    if (found?.averageValue != null) return Number(found.averageValue);
+    if (found?.value != null) return Number(found.value);
+  }
+  return 0;
+};
+
+const makeStableSeries = (base, len = 30, amp = 0.2) =>
+  Array.from({ length: len }, (_, idx) => {
+    const i = idx + 1;
+    const wave = Math.sin(i / 2) * amp;
+    const drift = (i - len / 2) * 0.002;
+    return {
+      day: i,
+      value: Number((base + wave + drift).toFixed(2)),
+    };
+  });
+
 export default function WaterQualityMetrics() {
   const navigate = useNavigate();
   const queryRiver = useQueryRiver();
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [rivers, setRivers] = useState([]);
+  const [selectedRiverId, setSelectedRiverId] = useState(null);
+  const [riverDetail, setRiverDetail] = useState(null);
 
-  const initialRiver = useMemo(() => {
-    const trimmed = (queryRiver || "").trim();
-    const match = RIVERS.find((r) => r.key === trimmed);
-    return match?.key || RIVERS[0].key;
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchRivers() {
+      try {
+        setLoading(true);
+        const data = await getRivers();
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        setRivers(list);
+
+        if (list.length > 0) {
+          const byQuery = list.find(
+            (r) => (r?.riverName || "").trim().toLowerCase() === (queryRiver || "").trim().toLowerCase()
+          );
+          setSelectedRiverId(byQuery?.riverId ?? list[0].riverId);
+        }
+      } catch (error) {
+        message.error("Failed to load rivers");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchRivers();
+    return () => {
+      cancelled = true;
+    };
   }, [queryRiver]);
 
-  const [selectedRiver, setSelectedRiver] = useState(initialRiver);
+  useEffect(() => {
+    if (selectedRiverId == null) return;
+    let cancelled = false;
+    async function fetchDetail() {
+      try {
+        setDetailLoading(true);
+        const detail = await getRiverDetail(selectedRiverId);
+        if (cancelled) return;
+        setRiverDetail(detail);
+      } catch (error) {
+        if (!cancelled) message.error("Failed to load river detail");
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    }
+    fetchDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRiverId]);
 
-  const seed = useMemo(() => hashSeed(selectedRiver), [selectedRiver]);
+  const selectedRiver = useMemo(
+    () => rivers.find((r) => r.riverId === selectedRiverId) ?? null,
+    [rivers, selectedRiverId]
+  );
 
   const metrics = useMemo(() => {
-    const ph = Number((7.4 + ((seed % 100) - 50) * 0.006).toFixed(2));
-    const temp = Number((23 + ((seed % 70) - 35) * 0.05).toFixed(1));
-    const turb = Number((12 + ((seed % 90) - 45) * 0.12).toFixed(1));
-    const flow = Number((1.55 + ((seed % 80) - 40) * 0.008).toFixed(2));
-    return { ph, temp, turb, flow };
-  }, [seed]);
+    const status = Array.isArray(riverDetail?.currentStatus) ? riverDetail.currentStatus : [];
+    return {
+      ph: getParamValue(status, ["PH"]),
+      temp: getParamValue(status, ["TEMP", "TEMPERATURE", "T"]),
+      turb: getParamValue(status, ["TURB", "TURBIDITY"]),
+      flow: getParamValue(status, ["FLOW", "FV", "FLOW_VELOCITY", "Q"]),
+      wl: getParamValue(status, ["WL"]),
+    };
+  }, [riverDetail]);
 
   const phHistory = useMemo(() => {
-    const values = makeSeries(seed, 30, metrics.ph, 0.22);
-    return values.map((v, idx) => ({ day: idx + 1, value: v }));
-  }, [seed, metrics.ph]);
+    const status = Array.isArray(riverDetail?.statusHistory) ? riverDetail.statusHistory : [];
+    const phFromStatus = status
+      .filter((x) => normalizeCode(x?.parameterCode) === "PH")
+      .slice(-30)
+      .map((x, idx) => ({ day: idx + 1, value: Number(x?.value ?? x?.averageValue ?? 0) }));
+    if (phFromStatus.length > 0) return phFromStatus;
+    return makeStableSeries(metrics.ph || 7, 30, 0.2);
+  }, [riverDetail, metrics.ph]);
 
-  const tempHistory = useMemo(() => {
-    const values = makeSeries(seed ^ 0x9e3779b9, 30, metrics.temp, 1.8);
-    return values.map((v, idx) => ({ day: idx + 1, value: v }));
-  }, [seed, metrics.temp]);
+  const tempHistory = useMemo(
+    () => makeStableSeries(metrics.temp || 25, 30, 1.4),
+    [metrics.temp]
+  );
 
-  const turbHistory = useMemo(() => {
-    const values = makeSeries(seed ^ 0x85ebca6b, 30, metrics.turb, 6.5).map((v) =>
-      Math.max(0, v)
-    );
-    return values.map((v, idx) => ({ day: idx + 1, value: v }));
-  }, [seed, metrics.turb]);
+  const turbHistory = useMemo(
+    () =>
+      makeStableSeries(metrics.turb || 10, 30, 4.8).map((x) => ({
+        ...x,
+        value: Math.max(0, x.value),
+      })),
+    [metrics.turb]
+  );
 
   const radarData = useMemo(() => {
     const clamp01 = (x) => Math.max(0, Math.min(1, x));
-    // Higher is better: balance/clarity/oxygen. (mocked)
     const phBalance = clamp01(1 - Math.abs(metrics.ph - 7.2) / 1.2);
     const clarity = clamp01(1 - metrics.turb / 60);
     const temperature = clamp01(1 - Math.abs(metrics.temp - 24) / 16);
     const flowStability = clamp01(1 - Math.abs(metrics.flow - 1.6) / 1.0);
-    const dissolvedO2 = clamp01(0.55 + ((seed % 40) - 20) * 0.01);
+    const dissolvedO2 = clamp01(0.65 - metrics.turb / 120);
 
     const toScore = (x) => Math.round(x * 100);
 
@@ -118,12 +171,7 @@ export default function WaterQualityMetrics() {
       { metric: "Flow Rate", value: toScore(flowStability) },
       { metric: "Dissolved O₂", value: toScore(dissolvedO2) },
     ];
-  }, [metrics, seed]);
-
-  const riverMeta = useMemo(
-    () => RIVERS.find((r) => r.key === selectedRiver) ?? RIVERS[0],
-    [selectedRiver]
-  );
+  }, [metrics]);
 
   return (
     <Layout style={{ minHeight: "100vh", background: "var(--page-bg)" }}>
@@ -146,31 +194,43 @@ export default function WaterQualityMetrics() {
 
         <div className="wqm-select">
           <div className="wqm-select-label">Select River</div>
-          <div className="wqm-select-row">
-            <Select
-              value={selectedRiver}
-              onChange={setSelectedRiver}
-              options={RIVERS.map((r) => ({ value: r.key, label: r.label }))}
-              className="wqm-river-select"
-              placeholder="Choose a river..."
-              allowClear={false}
-            />
-          </div>
-          <div className="wqm-river-tabs">
-            {RIVERS.map((r) => (
-              <button
-                key={r.key}
-                type="button"
-                className={
-                  r.key === selectedRiver ? "wqm-tab wqm-tab-active" : "wqm-tab"
-                }
-                onClick={() => setSelectedRiver(r.key)}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-          <div className="wqm-selected-meta">Vietnam · {riverMeta.region}</div>
+          {loading ? (
+            <div style={{ padding: "12px 0" }}>
+              <Spin />
+            </div>
+          ) : rivers.length === 0 ? (
+            <Empty description="No rivers found" />
+          ) : (
+            <>
+              <div className="wqm-select-row">
+                <Select
+                  value={selectedRiverId}
+                  onChange={setSelectedRiverId}
+                  options={rivers.map((r) => ({ value: r.riverId, label: r.riverName }))}
+                  className="wqm-river-select"
+                  placeholder="Choose a river..."
+                  allowClear={false}
+                />
+              </div>
+              <div className="wqm-river-tabs">
+                {rivers.map((r) => (
+                  <button
+                    key={r.riverId}
+                    type="button"
+                    className={
+                      r.riverId === selectedRiverId ? "wqm-tab wqm-tab-active" : "wqm-tab"
+                    }
+                    onClick={() => setSelectedRiverId(r.riverId)}
+                  >
+                    {r.riverName}
+                  </button>
+                ))}
+              </div>
+              <div className="wqm-selected-meta">
+                Vietnam · {selectedRiver?.region || "Unknown region"} · {detailLoading ? "Loading detail..." : "Live status"}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="wqm-metric-grid">

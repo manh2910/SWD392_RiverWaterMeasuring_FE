@@ -1,5 +1,20 @@
-import React, { useEffect, useState } from "react";
-import { Layout, Form, InputNumber, Switch, Button, Row, Col, Card, message } from "antd";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Layout,
+  InputNumber,
+  Switch,
+  Button,
+  Row,
+  Col,
+  Card,
+  message,
+  Space,
+  Typography,
+  Divider,
+  Empty,
+  Tag,
+  Spin,
+} from "antd";
 import AppHeader from "../../../components/User/Header/Header";
 import AppFooter from "../../../components/User/Footer/Footer";
 import {
@@ -11,77 +26,53 @@ import { getParameters } from "../../../api/paraApi";
 import "./AlertSettings.css";
 
 const { Content } = Layout;
+const { Text, Paragraph } = Typography;
 
-const initialValues = {
-  ph: 7.0,
+const defaultThresholdByKeyword = {
+  ph: 7,
   turbidity: 50,
   temperature: 30,
   flow: 1.5,
-  enabled: true,
-};
-
-const FIELD_CODE_CANDIDATES = {
-  ph: ["PH"],
-  turbidity: ["TURB", "TURBIDITY"],
-  temperature: ["TEMP", "TEMPERATURE"],
-  flow: ["FV", "FLOW", "FLOW_VELOCITY"],
 };
 
 const normalizeCode = (code) => String(code || "").trim().toUpperCase();
 
 export default function AlertSettings() {
-  const [form] = Form.useForm();
+  const [enabled, setEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [existingSettings, setExistingSettings] = useState({});
-  const [availableCodes, setAvailableCodes] = useState(new Set());
   const [parameterCatalog, setParameterCatalog] = useState([]);
+  const [selectedCodes, setSelectedCodes] = useState(new Set());
+  const [thresholdByCode, setThresholdByCode] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const inferCodeByKeywords = (fieldName) => {
-    const keywordMap = {
-      ph: ["ph"],
-      turbidity: ["turb", "turbidity", "ntu"],
-      temperature: ["temp", "temperature"],
-      flow: ["flow", "velocity", "current"],
-    };
-
-    const keywords = keywordMap[fieldName] || [];
-    if (keywords.length === 0) {
-      return null;
-    }
-
-    for (const item of parameterCatalog) {
-      const code = normalizeCode(item?.code || item?.parameterCode);
-      const haystack = `${item?.name || ""} ${item?.description || ""} ${code}`.toLowerCase();
-
-      if (keywords.some((kw) => haystack.includes(kw))) {
-        return code;
-      }
-    }
-
-    return null;
+  const guessDefaultThreshold = (item) => {
+    const code = normalizeCode(item?.code || item?.parameterCode);
+    const haystack = `${item?.name || ""} ${item?.description || ""} ${code}`.toLowerCase();
+    if (haystack.includes("ph")) return defaultThresholdByKeyword.ph;
+    if (haystack.includes("turb")) return defaultThresholdByKeyword.turbidity;
+    if (haystack.includes("temp")) return defaultThresholdByKeyword.temperature;
+    if (haystack.includes("flow") || haystack.includes("velocity")) return defaultThresholdByKeyword.flow;
+    return 0;
   };
 
-  const resolveFieldCode = (fieldName) => {
-    const candidates = FIELD_CODE_CANDIDATES[fieldName] || [];
-
-    for (const candidate of candidates) {
-      if (existingSettings[candidate]) {
-        return candidate;
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (availableCodes.has(candidate)) {
-        return candidate;
-      }
-    }
-
-    return inferCodeByKeywords(fieldName);
-  };
+  const parameterOptions = useMemo(
+    () =>
+      parameterCatalog
+        .map((p) => ({
+          code: normalizeCode(p?.code || p?.parameterCode),
+          name: p?.name || p?.parameterName || "Unnamed parameter",
+          unit: p?.unit || "",
+          description: p?.description || "",
+        }))
+        .filter((p) => p.code),
+    [parameterCatalog]
+  );
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
+        setLoading(true);
         const [settings, parameterRes] = await Promise.allSettled([
           getMyAlertSettings(),
           getParameters(),
@@ -105,111 +96,86 @@ export default function AlertSettings() {
 
         setParameterCatalog(parameterList);
 
-        const codeSet = new Set(
-          parameterList
-            .map((p) => normalizeCode(p?.code || p?.parameterCode))
-            .filter(Boolean)
-        );
-        setAvailableCodes(codeSet);
-
         const list = Array.isArray(settingsData?.data)
           ? settingsData.data
           : Array.isArray(settingsData)
           ? settingsData
           : [];
 
-        const nextValues = { ...initialValues };
         const lookup = {};
+        const selected = new Set();
+        const thresholds = {};
 
         list.forEach((item) => {
           const code = normalizeCode(item?.parameterCode);
-
-          if (!code) {
-            return;
-          }
-
+          if (!code) return;
           lookup[code] = item;
+          if (item?.isActive !== false) selected.add(code);
+          thresholds[code] = Number(item?.maxValue ?? 0);
+        });
 
-          if (code === "PH" && item.maxValue != null) {
-            nextValues.ph = Number(item.maxValue);
-          }
-          if (["TURB", "TURBIDITY"].includes(code) && item.maxValue != null) {
-            nextValues.turbidity = Number(item.maxValue);
-          }
-          if (["TEMP", "TEMPERATURE"].includes(code) && item.maxValue != null) {
-            nextValues.temperature = Number(item.maxValue);
-          }
-          if (["FV", "FLOW", "FLOW_VELOCITY"].includes(code) && item.maxValue != null) {
-            nextValues.flow = Number(item.maxValue);
+        const normalizedParams = parameterList
+          .map((item) => normalizeCode(item?.code || item?.parameterCode))
+          .filter(Boolean);
+
+        normalizedParams.forEach((code, idx) => {
+          if (thresholds[code] == null) {
+            thresholds[code] = guessDefaultThreshold(parameterList[idx]);
           }
         });
 
-        if (list.length > 0) {
-          nextValues.enabled = list.some((item) => item?.isActive !== false);
+        if (selected.size === 0 && normalizedParams.length > 0) {
+          normalizedParams.forEach((code) => selected.add(code));
         }
 
         setExistingSettings(lookup);
-        form.setFieldsValue(nextValues);
+        setSelectedCodes(selected);
+        setThresholdByCode(thresholds);
+        if (list.length > 0) setEnabled(list.some((item) => item?.isActive !== false));
       } catch (error) {
         console.error("LOAD ALERT SETTINGS ERROR:", error);
         message.error("Failed to load alert settings");
+      } finally {
+        setLoading(false);
       }
     };
 
     loadSettings();
-  }, [form]);
+  }, []);
 
-  const onFinish = async (vals) => {
-    const role = (localStorage.getItem("role") || "").toUpperCase();
-    if (!["ADMIN", "STAFF"].includes(role)) {
-      message.error("Your account does not have permission to save alert settings.");
-      return;
-    }
-
+  const onSave = async () => {
     setSaving(true);
 
     try {
-      const fields = Object.keys(FIELD_CODE_CANDIDATES);
-      const unresolvedFields = [];
-
-      const requests = fields.map(async (fieldName) => {
-        const parameterCode = resolveFieldCode(fieldName);
-
-        if (!parameterCode) {
-          unresolvedFields.push(fieldName);
-          return;
-        }
+      const requests = parameterOptions.map(async (param) => {
+        const parameterCode = param.code;
+        const maxValue = Number(thresholdByCode[parameterCode] ?? 0);
+        const isActive = Boolean(enabled && selectedCodes.has(parameterCode));
+        const existing = existingSettings[parameterCode];
 
         const payload = {
           parameterCode,
-          ruleType: "ABOVE",
-          minValue: null,
-          maxValue: Number(vals[fieldName]),
-          duration: 5,
-          trendCount: 1,
-          scopeType: "RIVER",
-          scopeId: 1,
-          isActive: Boolean(vals.enabled),
-          severity: "WARNING",
+          ruleType: existing?.ruleType || "ABOVE",
+          minValue: existing?.minValue ?? null,
+          maxValue,
+          duration: existing?.duration ?? 5,
+          trendCount: existing?.trendCount ?? 1,
+          scopeType: existing?.scopeType || "RIVER",
+          scopeId: existing?.scopeId ?? 1,
+          isActive,
+          severity: existing?.severity || "WARNING",
         };
-
-        const existing = existingSettings[parameterCode];
 
         if (existing?.settingId) {
           return updateAlertSetting(existing.settingId, payload);
         }
 
+        if (!isActive) return null;
         return createAlertSetting(payload);
       });
 
       const results = await Promise.allSettled(requests);
       const failed = results.filter((r) => r.status === "rejected");
-
-      if (unresolvedFields.length > 0) {
-        message.warning(
-          `Some thresholds were skipped because parameter codes are not available: ${unresolvedFields.join(", ")}`
-        );
-      }
 
       if (failed.length > 0) {
         const firstError = failed[0].reason;
@@ -254,45 +220,94 @@ export default function AlertSettings() {
     }
   };
 
+  const toggleParameter = (code, checked) => {
+    setSelectedCodes((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(code);
+      else next.delete(code);
+      return next;
+    });
+  };
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <AppHeader />
-      <Content style={{ padding: "40px 60px", background: "#f5f7fa" }}>
-        <Card title="Alert Configuration" className="alert-settings-card">
-          <Form form={form} layout="vertical" initialValues={initialValues} onFinish={onFinish}>
-            <Form.Item name="enabled" label="Enable Alerts" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-            <Row gutter={24}>
-              <Col span={12}>
-                <Form.Item name="ph" label="pH Threshold">
-                  <InputNumber min={0} max={14} style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="turbidity" label="Turbidity Threshold (NTU)">
-                  <InputNumber min={0} style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
+      <Content className="alert-settings-page">
+        <Card className="alert-settings-card">
+          <div className="alert-settings-head">
+            <div>
+              <h2>Alert Configuration</h2>
+              <Paragraph type="secondary">
+                Chọn các thông số sẽ xuất hiện trong thông báo. Bật thông số nào thì thông báo sẽ có thông tin của thông số đó.
+              </Paragraph>
+            </div>
+            <Space>
+              <Text>Enable all alerts</Text>
+              <Switch checked={enabled} onChange={setEnabled} />
+            </Space>
+          </div>
+
+          <Divider />
+
+          {loading ? (
+            <div className="alert-settings-loading">
+              <Spin />
+            </div>
+          ) : parameterOptions.length === 0 ? (
+            <Empty description="No parameters found" />
+          ) : (
+            <Row gutter={[16, 16]}>
+              {parameterOptions.map((param) => (
+                <Col xs={24} md={12} key={param.code}>
+                  <Card className={`param-item ${selectedCodes.has(param.code) ? "param-item-active" : ""}`}>
+                    <div className="param-item-top">
+                      <Space align="start" className="param-item-title-wrap">
+                        <Switch
+                          checked={selectedCodes.has(param.code)}
+                          onChange={(checked) => toggleParameter(param.code, checked)}
+                        />
+                        <div>
+                          <div className="param-item-title">{param.name}</div>
+                          <Space size={8}>
+                            <Tag color="blue">{param.code}</Tag>
+                            {param.unit ? <Tag>{param.unit}</Tag> : null}
+                          </Space>
+                        </div>
+                      </Space>
+                    </div>
+
+                    <div className="param-item-threshold">
+                      <Text type="secondary">Threshold</Text>
+                      <InputNumber
+                        min={0}
+                        style={{ width: "100%" }}
+                        value={thresholdByCode[param.code]}
+                        onChange={(v) =>
+                          setThresholdByCode((prev) => ({
+                            ...prev,
+                            [param.code]: Number(v ?? 0),
+                          }))
+                        }
+                        disabled={!selectedCodes.has(param.code) || !enabled}
+                      />
+                    </div>
+
+                    {param.description ? (
+                      <Text type="secondary" className="param-item-desc">
+                        {param.description}
+                      </Text>
+                    ) : null}
+                  </Card>
+                </Col>
+              ))}
             </Row>
-            <Row gutter={24}>
-              <Col span={12}>
-                <Form.Item name="temperature" label="Temperature Threshold (°C)">
-                  <InputNumber min={0} style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="flow" label="Flow Threshold (m³/s)">
-                  <InputNumber min={0} style={{ width: "100%" }} />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" loading={saving}>
-                Save
-              </Button>
-            </Form.Item>
-          </Form>
+          )}
+
+          <div className="alert-settings-actions">
+            <Button type="primary" loading={saving} onClick={onSave} disabled={loading || parameterOptions.length === 0}>
+              Save Settings
+            </Button>
+          </div>
         </Card>
       </Content>
       <AppFooter />
