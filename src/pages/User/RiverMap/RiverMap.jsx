@@ -55,6 +55,8 @@ const FILTERS = [
 ];
 
 const MAP_ZOOM_SELECTED = 11;
+const WATER_LEVEL_DANGER = 3.0;
+const WATER_LEVEL_WARNING = 2.5;
 
 function MapRecenter({ position }) {
   const map = useMap();
@@ -260,6 +262,17 @@ function RiverMap() {
     Math.min(100, ((selectedRiver?.level ?? 0) / 3.5) * 100)
   );
 
+  const levelStatus = useMemo(() => {
+    const level = selectedRiver?.level ?? 0;
+    if (level >= WATER_LEVEL_DANGER) {
+      return { key: "danger", label: "NGUY HIEM", note: "Muc nuoc dang vuot nguong an toan." };
+    }
+    if (level >= WATER_LEVEL_WARNING) {
+      return { key: "warning", label: "CANH BAO", note: "Muc nuoc dang cao, can theo doi sat." };
+    }
+    return { key: "normal", label: "AN TOAN", note: "Muc nuoc dang o muc binh thuong." };
+  }, [selectedRiver?.level]);
+
   const mapCenter = selectedRiver?.position ?? DEFAULT_CENTER;
 
   if (loading) {
@@ -370,6 +383,9 @@ function RiverMap() {
                 {selectedRiver && (
                   <div className="river-map-info-card">
                     <div className="river-map-info-title">{selectedRiver.name}</div>
+                    <div className={`river-level-badge river-level-badge-${levelStatus.key}`}>
+                      {levelStatus.label}
+                    </div>
                     <div className="river-map-info-row">{selectedRiver.region}</div>
                     <div className="river-map-info-row">
                       Mực nước: <strong>{(selectedRiver.level ?? 0).toFixed(2)} m</strong>
@@ -507,16 +523,19 @@ function RiverMap() {
                 </div>
 
                 <div className="river-detail-level">
+                  <div className={`river-level-alert river-level-alert-${levelStatus.key}`}>
+                    <strong>{levelStatus.label}</strong>: {levelStatus.note}
+                  </div>
                   <div className="river-detail-level-head">
                     <div className="river-detail-level-label">Water Level</div>
-                    <div className="river-detail-level-value">
+                    <div className={`river-detail-level-value river-detail-level-value-${levelStatus.key}`}>
                       {(selectedRiver.level ?? 0).toFixed(2)}m
                     </div>
                   </div>
 
                   <div className="river-detail-level-bar">
                     <div
-                      className="river-detail-level-bar-fill"
+                      className={`river-detail-level-bar-fill river-detail-level-bar-fill-${levelStatus.key}`}
                       style={{ width: `${levelPercent}%` }}
                     />
                   </div>

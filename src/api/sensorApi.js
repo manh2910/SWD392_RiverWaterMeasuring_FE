@@ -11,7 +11,10 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("authToken");
   if (token) {
     const authHeaderValue = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
     // Gắn header chắc chắn vào config.headers (một số trường hợp AxiosHeaders có thể undefined)

@@ -21,8 +21,8 @@ import {
   DeleteOutlined,
   RadarChartOutlined,
 } from "@ant-design/icons";
-import { getStations } from "../../../api/stationApi";
 import { getHubs } from "../../../api/hubApi";
+import { getParameters } from "../../../api/paraApi";
 import { getSensorsByHub, createSensorByHub, updateSensor, deleteSensor } from "../../../api/sensorApi";
 import "./Sensors.css";
 
@@ -32,86 +32,86 @@ export default function Sensors() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [hubOptions, setHubOptions] = useState([]);
+  const [parameterOptions, setParameterOptions] = useState([]);
   const [selectedHubId, setSelectedHubId] = useState(null);
   const [form] = Form.useForm();
 
+  const toArray = (payload) =>
+    Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.content)
+        ? payload.content
+        : Array.isArray(payload)
+          ? payload
+          : [];
+
+  const normalizeSensor = (item) => ({
+    key: item.sensorId ?? item.id,
+    sensorId: item.sensorId ?? item.id,
+    parameterId: item.parameterId ?? item.parameter_id ?? null,
+    parameterCode: item.parameterCode ?? item.code ?? "",
+    parameterName: item.parameterName ?? item.name ?? "",
+    unit: item.unit ?? "",
+    status: String(item.status || "INACTIVE").toLowerCase(),
+    samplingInterval: Number(item.samplingInterval ?? item.sampling_interval ?? 0),
+    hubId: item.hubId ?? item.hub_id,
+  });
+
+  const loadSensors = async (hubId) => {
+    if (hubId == null) {
+      setData([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const sensorRes = await getSensorsByHub(hubId);
+      const rows = toArray(sensorRes).map(normalizeSensor);
+      setData(rows);
+    } catch (err) {
+      console.error("LOAD SENSORS ERROR:", err);
+      const status = err?.response?.status;
+      const msg = err?.response?.data?.message || err?.message || "Unknown error";
+      message.error(`Failed to load sensors${status ? ` (HTTP ${status})` : ""}: ${msg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadHubs = async () => {
+    const loadInitialData = async () => {
       try {
-        const stationRes = await getStations();
-        const stations = Array.isArray(stationRes?.data) ? stationRes.data : stationRes || [];
+        const [hubRes, parameterRes] = await Promise.all([
+          getHubs(),
+          getParameters().catch(() => []),
+        ]);
 
-        const hubs = stations.flatMap((station) => {
-          const stationHubs = Array.isArray(station?.hubs) ? station.hubs : [];
-          return stationHubs.map((hub) => ({
-            label: `${hub.hubCode} (Station ${station.stationName})`,
-            value: hub.hubId,
-          }));
-        });
-
-        // Fallback: nếu API stations không trả về `hubs`, lấy hubs từ /hubs
-        if (hubs.length === 0) {
-          const hubRes = await getHubs();
-          const allHubs = Array.isArray(hubRes?.content)
-            ? hubRes.content
-            : Array.isArray(hubRes)
-              ? hubRes
-              : [];
-
-          const mapped = allHubs.map((hub) => ({
-            label: `${hub.hubCode ?? "Hub"}${hub.hubId != null ? ` (ID: ${hub.hubId})` : ""}`,
-            value: hub.hubId,
-          }));
-
-          setHubOptions(mapped);
-          if (mapped.length > 0) setSelectedHubId(mapped[0].value);
-          return;
-        }
-
+        const hubs = toArray(hubRes).map((hub) => ({
+          label: `${hub.hubCode ?? "Hub"}${hub.hubId != null ? ` (ID: ${hub.hubId})` : ""}`,
+          value: hub.hubId,
+        }));
         setHubOptions(hubs);
         if (hubs.length > 0) setSelectedHubId(hubs[0].value);
+
+        const parameters = toArray(parameterRes).map((p) => ({
+          value: p.parameterId ?? p.id,
+          label: `${p.parameterName ?? p.name ?? p.code ?? "Parameter"}${p.code ? ` (${p.code})` : ""}`,
+          code: p.code ?? p.parameterCode ?? "",
+          name: p.parameterName ?? p.name ?? "",
+          unit: p.unit ?? "",
+        }));
+        setParameterOptions(parameters);
       } catch (err) {
-        console.error("LOAD HUB OPTIONS ERROR:", err);
+        console.error("LOAD SENSOR PAGE DATA ERROR:", err);
+        message.error("Failed to load hubs");
       }
     };
 
-    loadHubs();
+    loadInitialData();
   }, []);
 
   useEffect(() => {
-    const loadSensors = async () => {
-      if (selectedHubId == null) {
-        setData([]);
-        return;
-      }
-
-      setLoading(true);
-
-      try {
-        const sensorList = await getSensorsByHub(selectedHubId);
-        const rows = (Array.isArray(sensorList) ? sensorList : []).map((item) => ({
-          key: item.sensorId,
-          sensorId: item.sensorId,
-          parameterCode: item.parameterCode,
-          parameterName: item.parameterName,
-          unit: item.unit,
-          status: (item.status || "INACTIVE").toLowerCase(),
-          samplingInterval: item.samplingInterval,
-          hubId: item.hubId,
-        }));
-
-        setData(rows);
-      } catch (err) {
-        console.error("LOAD SENSORS ERROR:", err);
-        const status = err?.response?.status;
-        const msg = err?.response?.data?.message || err?.message || "Unknown error";
-        message.error(`Failed to load sensors${status ? ` (HTTP ${status})` : ""}: ${msg}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSensors();
+    loadSensors(selectedHubId);
   }, [selectedHubId]);
 
   const openModal = (record = null) => {
@@ -119,6 +119,7 @@ export default function Sensors() {
     setOpen(true);
     form.setFieldsValue(
       record || {
+        parameterId: undefined,
         parameterCode: "",
         parameterName: "",
         unit: "",
@@ -131,10 +132,12 @@ export default function Sensors() {
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
+      const selectedParameter = parameterOptions.find((p) => p.value === values.parameterId);
       const payload = {
-        parameterCode: values.parameterCode,
-        parameterName: values.parameterName,
-        unit: values.unit,
+        parameterId: values.parameterId,
+        parameterCode: selectedParameter?.code || values.parameterCode,
+        parameterName: selectedParameter?.name || values.parameterName,
+        unit: selectedParameter?.unit || values.unit,
         status: values.status.toUpperCase(),
         samplingInterval: Number(values.samplingInterval),
         hubId: selectedHubId,
@@ -151,19 +154,7 @@ export default function Sensors() {
       setOpen(false);
       setEditing(null);
       form.resetFields();
-
-      const sensorList = await getSensorsByHub(selectedHubId);
-      const rows = (Array.isArray(sensorList) ? sensorList : []).map((item) => ({
-        key: item.sensorId,
-        sensorId: item.sensorId,
-        parameterCode: item.parameterCode,
-        parameterName: item.parameterName,
-        unit: item.unit,
-        status: (item.status || "INACTIVE").toLowerCase(),
-        samplingInterval: item.samplingInterval,
-        hubId: item.hubId,
-      }));
-      setData(rows);
+      await loadSensors(selectedHubId);
     } catch (err) {
       console.error("SAVE SENSOR ERROR:", err);
       message.error("Failed to save sensor");
@@ -235,6 +226,19 @@ export default function Sensors() {
 
   return (
     <div className="sensors-page">
+      <Card className="sensors-hub-bar">
+        <Space align="center" wrap>
+          <span className="sensors-hub-label">Hub:</span>
+          <Select
+            className="sensors-hub-select"
+            placeholder="Select hub"
+            value={selectedHubId}
+            onChange={setSelectedHubId}
+            options={hubOptions}
+          />
+        </Space>
+      </Card>
+
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
@@ -280,13 +284,6 @@ export default function Sensors() {
         title={<span><RadarChartOutlined style={{ marginRight: 8, color: "#1890ff" }} />All Sensors</span>}
         extra={
           <Space>
-            <Select
-              style={{ minWidth: 240 }}
-              placeholder="Select hub"
-              value={selectedHubId}
-              onChange={setSelectedHubId}
-              options={hubOptions}
-            />
             <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal()} disabled={!selectedHubId}>
               Add Sensor
             </Button>
@@ -319,6 +316,22 @@ export default function Sensors() {
         destroyOnClose
       >
         <Form layout="vertical" form={form}>
+          <Form.Item name="parameterId" label="Parameter" rules={[{ required: true, message: "Please select parameter" }]}>
+            <Select
+              placeholder="Select parameter"
+              options={parameterOptions}
+              onChange={(value) => {
+                const selectedParameter = parameterOptions.find((p) => p.value === value);
+                if (!selectedParameter) return;
+                form.setFieldsValue({
+                  parameterCode: selectedParameter.code,
+                  parameterName: selectedParameter.name,
+                  unit: selectedParameter.unit,
+                });
+              }}
+            />
+          </Form.Item>
+
           <Form.Item name="parameterName" label="Parameter Name" rules={[{ required: true, message: "Please enter parameter name" }]}>
             <Input placeholder="e.g., Dissolved Oxygen" />
           </Form.Item>

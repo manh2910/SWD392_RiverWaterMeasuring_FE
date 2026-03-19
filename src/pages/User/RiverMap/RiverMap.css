@@ -168,6 +168,31 @@
   margin-bottom: 10px;
 }
 
+.river-level-alert {
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.river-level-alert-danger {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.river-level-alert-warning {
+  color: #92400e;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.34);
+}
+
+.river-level-alert-normal {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
 .river-detail-level-label {
   color: var(--text-muted);
 }
@@ -176,6 +201,18 @@
   color: rgba(34, 197, 94, 1);
   font-size: 26px;
   font-weight: 900;
+}
+
+.river-detail-level-value-danger {
+  color: #dc2626;
+}
+
+.river-detail-level-value-warning {
+  color: #d97706;
+}
+
+.river-detail-level-value-normal {
+  color: #16a34a;
 }
 
 .river-detail-level-bar {
@@ -194,6 +231,18 @@
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(34, 197, 94, 0.9), rgba(34, 197, 94, 0.55));
+}
+
+.river-detail-level-bar-fill-danger {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.95), rgba(239, 68, 68, 0.6));
+}
+
+.river-detail-level-bar-fill-warning {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.95), rgba(245, 158, 11, 0.6));
+}
+
+.river-detail-level-bar-fill-normal {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.95), rgba(34, 197, 94, 0.6));
 }
 
 .river-detail-level-scale {
@@ -294,6 +343,34 @@
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.river-level-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.river-level-badge-danger {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.32);
+}
+
+.river-level-badge-warning {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+}
+
+.river-level-badge-normal {
+  background: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+  border: 1px solid rgba(34, 197, 94, 0.28);
 }
 
 .river-map-info-row {

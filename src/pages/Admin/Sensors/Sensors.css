@@ -5,6 +5,21 @@
   gap: 24px;
 }
 
+.sensors-hub-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.sensors-hub-label {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.sensors-hub-select {
+  min-width: 280px;
+}
+
 .sensors-page .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -108,9 +123,13 @@
     gap: 16px;
   }
 
+  .sensors-hub-select {
+    min-width: 220px;
+    width: 100%;
+  }
+
   .admin-table .ant-table-cell {
     padding: 8px 12px;
     font-size: 12px;
   }
-}
 }
