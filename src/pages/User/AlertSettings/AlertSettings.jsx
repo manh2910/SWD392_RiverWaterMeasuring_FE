@@ -1,313 +1,400 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Layout,
-  InputNumber,
-  Switch,
-  Button,
-  Row,
-  Col,
-  Card,
-  message,
-  Space,
-  Typography,
-  Divider,
-  Empty,
-  Tag,
-  Spin,
-} from "antd";
+import { DeleteOutlined } from "@ant-design/icons";
+import { Button, Card, Col, Empty, Form, InputNumber, Layout, Popconfirm, Row, Select, Space, Spin, Switch, Table, Tag, Typography, message } from "antd";
 import AppHeader from "../../../components/User/Header/Header";
 import AppFooter from "../../../components/User/Footer/Footer";
-import {
-  getMyAlertSettings,
-  createAlertSetting,
-  updateAlertSetting,
-} from "../../../api/alertApi";
+import { deleteAlertSetting, getMyAlertSettings, upsertAlertSetting } from "../../../api/alertApi";
 import { getParameters } from "../../../api/paraApi";
+import { getRivers } from "../../../api/riverApi";
+import { getStations } from "../../../api/stationApi";
 import "./AlertSettings.css";
 
 const { Content } = Layout;
-const { Text, Paragraph } = Typography;
-
-const defaultThresholdByKeyword = {
-  ph: 7,
-  turbidity: 50,
-  temperature: 30,
-  flow: 1.5,
-};
+const { Text } = Typography;
 
 const normalizeCode = (code) => String(code || "").trim().toUpperCase();
+const toArray = (payload) => (Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []);
+const getSettingId = (item) => item?.settingId ?? item?.alertSettingId ?? item?.id;
+const getSettingTimestamp = (item) =>
+  new Date(item?.createdAt ?? item?.createdTime ?? item?.created_date ?? 0).getTime() || 0;
+
+const severityOptions = [
+  { value: "INFO", label: "Info", color: "blue" },
+  { value: "WARNING", label: "Warning", color: "gold" },
+  { value: "CRITICAL", label: "Critical", color: "red" },
+];
 
 export default function AlertSettings() {
-  const [enabled, setEnabled] = useState(true);
+  const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);
-  const [existingSettings, setExistingSettings] = useState({});
-  const [parameterCatalog, setParameterCatalog] = useState([]);
-  const [selectedCodes, setSelectedCodes] = useState(new Set());
-  const [thresholdByCode, setThresholdByCode] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [settings, setSettings] = useState([]);
+  const [parameterOptions, setParameterOptions] = useState([]);
+  const [riverOptions, setRiverOptions] = useState([]);
+  const [stationOptions, setStationOptions] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  const guessDefaultThreshold = (item) => {
-    const code = normalizeCode(item?.code || item?.parameterCode);
-    const haystack = `${item?.name || ""} ${item?.description || ""} ${code}`.toLowerCase();
-    if (haystack.includes("ph")) return defaultThresholdByKeyword.ph;
-    if (haystack.includes("turb")) return defaultThresholdByKeyword.turbidity;
-    if (haystack.includes("temp")) return defaultThresholdByKeyword.temperature;
-    if (haystack.includes("flow") || haystack.includes("velocity")) return defaultThresholdByKeyword.flow;
-    return 0;
+  const loadSettings = async () => {
+    setTableLoading(true);
+    try {
+      const settingsRes = await getMyAlertSettings();
+      setSettings(toArray(settingsRes));
+    } catch (error) {
+      console.error("LOAD ALERT SETTINGS ERROR:", error);
+      message.error("Không tải được cấu hình cảnh báo");
+    } finally {
+      setTableLoading(false);
+    }
   };
 
-  const parameterOptions = useMemo(
-    () =>
-      parameterCatalog
-        .map((p) => ({
-          code: normalizeCode(p?.code || p?.parameterCode),
-          name: p?.name || p?.parameterName || "Unnamed parameter",
-          unit: p?.unit || "",
-          description: p?.description || "",
-        }))
-        .filter((p) => p.code),
-    [parameterCatalog]
-  );
-
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
-        const [settings, parameterRes] = await Promise.allSettled([
+        const [settingsRes, parameterRes, riverRes, stationRes] = await Promise.allSettled([
           getMyAlertSettings(),
           getParameters(),
+          getRivers(),
+          getStations(),
         ]);
 
-        const settingsData =
-          settings.status === "fulfilled"
-            ? settings.value
-            : [];
+        setSettings(settingsRes.status === "fulfilled" ? toArray(settingsRes.value) : []);
 
-        const parametersData =
-          parameterRes.status === "fulfilled"
-            ? parameterRes.value
-            : [];
-
-        const parameterList = Array.isArray(parametersData?.data)
-          ? parametersData.data
-          : Array.isArray(parametersData)
-          ? parametersData
-          : [];
-
-        setParameterCatalog(parameterList);
-
-        const list = Array.isArray(settingsData?.data)
-          ? settingsData.data
-          : Array.isArray(settingsData)
-          ? settingsData
-          : [];
-
-        const lookup = {};
-        const selected = new Set();
-        const thresholds = {};
-
-        list.forEach((item) => {
-          const code = normalizeCode(item?.parameterCode);
-          if (!code) return;
-          lookup[code] = item;
-          if (item?.isActive !== false) selected.add(code);
-          thresholds[code] = Number(item?.maxValue ?? 0);
-        });
-
-        const normalizedParams = parameterList
-          .map((item) => normalizeCode(item?.code || item?.parameterCode))
+        const parameters = parameterRes.status === "fulfilled" ? toArray(parameterRes.value) : [];
+        const paramOptions = parameters
+          .map((item) => {
+            const code = normalizeCode(item?.code || item?.parameterCode);
+            if (!code) return null;
+            return {
+              value: code,
+              label: `${code} - ${item?.name || item?.parameterName || "Unknown"}`,
+            };
+          })
           .filter(Boolean);
+        setParameterOptions(paramOptions);
 
-        normalizedParams.forEach((code, idx) => {
-          if (thresholds[code] == null) {
-            thresholds[code] = guessDefaultThreshold(parameterList[idx]);
-          }
+        const rivers = riverRes.status === "fulfilled" ? toArray(riverRes.value) : [];
+        setRiverOptions(
+          rivers.map((item) => ({
+            value: Number(item?.riverId),
+            label: item?.riverName || `Sông ${item?.riverId}`,
+          }))
+        );
+
+        const stations = stationRes.status === "fulfilled" ? toArray(stationRes.value) : [];
+        setStationOptions(
+          stations.map((item) => ({
+            value: Number(item?.stationId),
+            label: item?.stationName || `Trạm ${item?.stationId}`,
+          }))
+        );
+
+        form.setFieldsValue({
+          severity: "WARNING",
+          scopeType: "STATION",
+          isActive: true,
         });
-
-        if (selected.size === 0 && normalizedParams.length > 0) {
-          normalizedParams.forEach((code) => selected.add(code));
-        }
-
-        setExistingSettings(lookup);
-        setSelectedCodes(selected);
-        setThresholdByCode(thresholds);
-        if (list.length > 0) setEnabled(list.some((item) => item?.isActive !== false));
       } catch (error) {
         console.error("LOAD ALERT SETTINGS ERROR:", error);
-        message.error("Failed to load alert settings");
+        message.error("Không tải được trang cài đặt cảnh báo");
       } finally {
         setLoading(false);
       }
     };
 
-    loadSettings();
-  }, []);
+    loadData();
+  }, [form]);
 
   const onSave = async () => {
+    const values = await form.validateFields();
     setSaving(true);
-
     try {
-      const requests = parameterOptions.map(async (param) => {
-        const parameterCode = param.code;
-        const maxValue = Number(thresholdByCode[parameterCode] ?? 0);
-        const isActive = Boolean(enabled && selectedCodes.has(parameterCode));
-        const existing = existingSettings[parameterCode];
+      const payload = {
+        parameterCode: values.parameterCode,
+        ruleType: "THRESHOLD",
+        minValue: Number(values.minValue),
+        maxValue: Number(values.maxValue),
+        severity: values.severity,
+        scopeType: values.scopeType,
+        scopeId: Number(values.scopeId),
+        isActive: Boolean(values.isActive),
+      };
 
-        const payload = {
-          parameterCode,
-          ruleType: existing?.ruleType || "ABOVE",
-          minValue: existing?.minValue ?? null,
-          maxValue,
-          duration: existing?.duration ?? 5,
-          trendCount: existing?.trendCount ?? 1,
-          scopeType: existing?.scopeType || "RIVER",
-          scopeId: existing?.scopeId ?? 1,
-          isActive,
-          severity: existing?.severity || "WARNING",
-        };
-
-        if (existing?.settingId) {
-          return updateAlertSetting(existing.settingId, payload);
-        }
-
-        if (!isActive) return null;
-        return createAlertSetting(payload);
-      });
-
-      const results = await Promise.allSettled(requests);
-      const failed = results.filter((r) => r.status === "rejected");
-
-      if (failed.length > 0) {
-        const firstError = failed[0].reason;
-        const detail =
-          firstError?.response?.data?.message ||
-          firstError?.response?.data?.error ||
-          firstError?.message ||
-          "Failed to save settings";
-        message.error(detail);
+      if (payload.minValue > payload.maxValue) {
+        message.error("Min phải nhỏ hơn hoặc bằng Max");
         return;
       }
 
-      await (async () => {
-        const refreshed = await getMyAlertSettings();
-        const refreshedList = Array.isArray(refreshed?.data)
-          ? refreshed.data
-          : Array.isArray(refreshed)
-          ? refreshed
-          : [];
-
-        const lookup = {};
-        refreshedList.forEach((item) => {
-          const code = normalizeCode(item?.parameterCode);
-          if (code) {
-            lookup[code] = item;
-          }
-        });
-        setExistingSettings(lookup);
-      })();
-
-      message.success("Alert settings saved");
+      await upsertAlertSetting(payload);
+      message.success("Lưu cấu hình cảnh báo thành công");
+      await loadSettings();
     } catch (error) {
+      if (error?.errorFields) {
+        return;
+      }
       console.error("SAVE ALERT SETTINGS ERROR:", error);
       const detail =
         error?.response?.data?.message ||
         error?.response?.data?.error ||
         error?.message ||
-        "Failed to save settings";
+        "Lưu cấu hình thất bại";
       message.error(detail);
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleParameter = (code, checked) => {
-    setSelectedCodes((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(code);
-      else next.delete(code);
-      return next;
+  const scopeType = Form.useWatch("scopeType", form);
+  const scopeOptions = scopeType === "RIVER" ? riverOptions : stationOptions;
+  const scopeLabelById = useMemo(() => {
+    const map = {};
+    riverOptions.forEach((item) => {
+      map[`RIVER_${item.value}`] = item.label;
     });
+    stationOptions.forEach((item) => {
+      map[`STATION_${item.value}`] = item.label;
+    });
+    return map;
+  }, [riverOptions, stationOptions]);
+
+  const onToggleActive = async (record, checked) => {
+    setSubmitting(true);
+    try {
+      await upsertAlertSetting({
+        parameterCode: normalizeCode(record?.parameterCode),
+        ruleType: record?.ruleType || "THRESHOLD",
+        minValue: Number(record?.minValue),
+        maxValue: Number(record?.maxValue),
+        severity: record?.severity || "WARNING",
+        scopeType: record?.scopeType || "STATION",
+        scopeId: Number(record?.scopeId),
+        isActive: Boolean(checked),
+      });
+      await loadSettings();
+    } catch (error) {
+      const detail =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Cập nhật trạng thái thất bại";
+      message.error(detail);
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const onDelete = async (record) => {
+    const id = getSettingId(record);
+    if (!id) {
+      message.error("Không tìm thấy ID để xoá");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await deleteAlertSetting(id);
+      message.success("Đã xoá cấu hình cảnh báo");
+      await loadSettings();
+    } catch (error) {
+      const detail =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "Xoá cấu hình thất bại";
+      message.error(detail);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const columns = [
+    {
+      title: "Thông số",
+      dataIndex: "parameterCode",
+      key: "parameterCode",
+      render: (value) => <Tag color="cyan">{normalizeCode(value)}</Tag>,
+    },
+    {
+      title: "Min",
+      dataIndex: "minValue",
+      key: "minValue",
+      render: (value) => Number(value).toFixed(2),
+    },
+    {
+      title: "Max",
+      dataIndex: "maxValue",
+      key: "maxValue",
+      render: (value) => Number(value).toFixed(2),
+    },
+    {
+      title: "Phạm vi",
+      key: "scope",
+      render: (_, record) => {
+        const type = record?.scopeType || "STATION";
+        const label = scopeLabelById[`${type}_${Number(record?.scopeId)}`] || `${type} ${record?.scopeId}`;
+        return <span>{label}</span>;
+      },
+    },
+    {
+      title: "Mức độ",
+      dataIndex: "severity",
+      key: "severity",
+      render: (value) => {
+        const item = severityOptions.find((s) => s.value === value) || severityOptions[1];
+        return <Tag color={item.color}>{item.label}</Tag>;
+      },
+    },
+    {
+      title: "Kích hoạt",
+      key: "isActive",
+      render: (_, record) => (
+        <Switch
+          checked={record?.isActive !== false}
+          loading={submitting}
+          onChange={(checked) => onToggleActive(record, checked)}
+        />
+      ),
+    },
+    {
+      title: "Thao tác",
+      key: "actions",
+      render: (_, record) => (
+        <Popconfirm title="Xoá cảnh báo này?" okText="Xoá" cancelText="Huỷ" onConfirm={() => onDelete(record)}>
+          <Button danger icon={<DeleteOutlined />} />
+        </Popconfirm>
+      ),
+    },
+  ];
+
+  const sortedSettings = useMemo(() => {
+    return [...settings].sort((a, b) => {
+      const timeDiff = getSettingTimestamp(b) - getSettingTimestamp(a);
+      if (timeDiff !== 0) return timeDiff;
+      return Number(getSettingId(b) || 0) - Number(getSettingId(a) || 0);
+    });
+  }, [settings]);
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <AppHeader />
       <Content className="alert-settings-page">
         <Card className="alert-settings-card">
-          <div className="alert-settings-head">
-            <div>
-              <h2>Alert Configuration</h2>
-              <Paragraph type="secondary">
-                Chọn các thông số sẽ xuất hiện trong thông báo. Bật thông số nào thì thông báo sẽ có thông tin của thông số đó.
-              </Paragraph>
-            </div>
-            <Space>
-              <Text>Enable all alerts</Text>
-              <Switch checked={enabled} onChange={setEnabled} />
-            </Space>
-          </div>
-
-          <Divider />
-
           {loading ? (
             <div className="alert-settings-loading">
               <Spin />
             </div>
-          ) : parameterOptions.length === 0 ? (
-            <Empty description="No parameters found" />
           ) : (
-            <Row gutter={[16, 16]}>
-              {parameterOptions.map((param) => (
-                <Col xs={24} md={12} key={param.code}>
-                  <Card className={`param-item ${selectedCodes.has(param.code) ? "param-item-active" : ""}`}>
-                    <div className="param-item-top">
-                      <Space align="start" className="param-item-title-wrap">
-                        <Switch
-                          checked={selectedCodes.has(param.code)}
-                          onChange={(checked) => toggleParameter(param.code, checked)}
-                        />
-                        <div>
-                          <div className="param-item-title">{param.name}</div>
-                          <Space size={8}>
-                            <Tag color="blue">{param.code}</Tag>
-                            {param.unit ? <Tag>{param.unit}</Tag> : null}
-                          </Space>
-                        </div>
-                      </Space>
-                    </div>
+            <>
+              <div className="alert-settings-head">
+                <h2>Thêm Cảnh báo Mới</h2>
+              </div>
 
-                    <div className="param-item-threshold">
-                      <Text type="secondary">Threshold</Text>
-                      <InputNumber
-                        min={0}
-                        style={{ width: "100%" }}
-                        value={thresholdByCode[param.code]}
-                        onChange={(v) =>
-                          setThresholdByCode((prev) => ({
-                            ...prev,
-                            [param.code]: Number(v ?? 0),
-                          }))
-                        }
-                        disabled={!selectedCodes.has(param.code) || !enabled}
+              <Form form={form} layout="vertical" className="alert-form">
+                <Row gutter={[16, 8]}>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Thông số"
+                      name="parameterCode"
+                      rules={[{ required: true, message: "Vui lòng chọn thông số" }]}
+                    >
+                      <Select placeholder="Chọn thông số" options={parameterOptions} />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Phạm vi"
+                      name="scopeType"
+                      rules={[{ required: true, message: "Vui lòng chọn phạm vi" }]}
+                    >
+                      <Select
+                        options={[
+                          { value: "STATION", label: "Trạm" },
+                          { value: "RIVER", label: "Sông" },
+                        ]}
+                        onChange={() => form.setFieldValue("scopeId", undefined)}
                       />
-                    </div>
+                    </Form.Item>
+                  </Col>
 
-                    {param.description ? (
-                      <Text type="secondary" className="param-item-desc">
-                        {param.description}
-                      </Text>
-                    ) : null}
-                  </Card>
-                </Col>
-              ))}
-            </Row>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label={scopeType === "RIVER" ? "Chọn sông" : "Chọn trạm"}
+                      name="scopeId"
+                      rules={[{ required: true, message: "Vui lòng chọn phạm vi cụ thể" }]}
+                    >
+                      <Select
+                        showSearch
+                        optionFilterProp="label"
+                        placeholder={scopeType === "RIVER" ? "Chọn sông" : "Chọn trạm"}
+                        options={scopeOptions}
+                      />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} sm={12} md={6}>
+                    <Form.Item
+                      label="Giá trị tối thiểu (Min)"
+                      name="minValue"
+                      rules={[{ required: true, message: "Nhập Min" }]}
+                    >
+                      <InputNumber style={{ width: "100%" }} />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} sm={12} md={6}>
+                    <Form.Item
+                      label="Giá trị tối đa (Max)"
+                      name="maxValue"
+                      rules={[{ required: true, message: "Nhập Max" }]}
+                    >
+                      <InputNumber style={{ width: "100%" }} />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} sm={12} md={8}>
+                    <Form.Item label="Mức độ" name="severity">
+                      <Select options={severityOptions.map((item) => ({ value: item.value, label: item.label }))} />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} sm={12} md={8}>
+                    <Form.Item label="Kích hoạt" name="isActive" valuePropName="checked">
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Form>
+
+              <div className="alert-settings-actions">
+                <Button
+                  type="primary"
+                  loading={saving}
+                  onClick={onSave}
+                  disabled={parameterOptions.length === 0}
+                >
+                  Lưu cảnh báo
+                </Button>
+              </div>
+
+              <div className="current-alerts-head">
+                <Text strong>Cảnh báo hiện tại</Text>
+              </div>
+
+              {settings.length === 0 ? (
+                <Empty description="Chưa có cấu hình cảnh báo" />
+              ) : (
+                <Table
+                  rowKey={(record) => `${record?.parameterCode}-${record?.scopeType}-${record?.scopeId}`}
+                  className="alert-settings-table"
+                  loading={tableLoading}
+                  columns={columns}
+                  dataSource={sortedSettings}
+                  pagination={false}
+                />
+              )}
+            </>
           )}
-
-          <div className="alert-settings-actions">
-            <Button type="primary" loading={saving} onClick={onSave} disabled={loading || parameterOptions.length === 0}>
-              Save Settings
-            </Button>
-          </div>
         </Card>
       </Content>
       <AppFooter />

@@ -35,6 +35,8 @@ export const createAlertSetting = async (data) => {
   return res.data;
 };
 
+export const upsertAlertSetting = createAlertSetting;
+
 export const updateAlertSetting = async (id, data) => {
   const res = await axios.put(`${BASE_URL}/${id}`, data, {
     headers: authHeaders(),
