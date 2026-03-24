@@ -18,7 +18,7 @@ import AppFooter from "../../../components/User/Footer/Footer";
 import "./RiverMap.css";
 import { useNavigate } from "react-router-dom";
 import { getRivers, getRiverDetail } from "../../../api/riverApi";
-import { getStations } from "../../../api/stationApi";
+import { getStations, getStationsMap } from "../../../api/stationApi";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -46,7 +46,37 @@ const locationMarkerIcon = L.divIcon({
 
 const { Content } = Layout;
 
-const DEFAULT_CENTER = [21.0, 105.8];
+/** Mặc định nhìn cả Việt Nam — không dùng Hà Nội để tránh “nhảy” sai khi sông chưa có tọa độ */
+const DEFAULT_CENTER = [16.1, 107.2];
+
+function normalizeRiverLabel(str) {
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Ghép sông đang chọn với trạm trên map khi riverId lệch giữa API rivers vs stations/map */
+function findMapStationForRiver(river, stations) {
+  if (!river || !stations?.length) return null;
+  const rid = river.id;
+  let st = stations.find((s) => Number(s.riverId) === Number(rid));
+  if (st) return st;
+  st = stations.find((s) => String(s.riverId) === String(rid));
+  if (st) return st;
+  const rName = normalizeRiverLabel(river.name);
+  if (!rName) return null;
+  st = stations.find((s) => normalizeRiverLabel(s.riverName) === rName);
+  if (st) return st;
+  return (
+    stations.find((s) => {
+      const sn = normalizeRiverLabel(s.riverName);
+      return sn && (rName.includes(sn) || sn.includes(rName));
+    }) || null
+  );
+}
 
 const FILTERS = [
   { key: "all", label: "All Rivers" },
@@ -57,6 +87,100 @@ const FILTERS = [
 const MAP_ZOOM_SELECTED = 11;
 const WATER_LEVEL_DANGER = 3.0;
 const WATER_LEVEL_WARNING = 2.5;
+
+/** Màu marker theo waterLevelStatus (đồng bộ legend mực nước) */
+const WATER_STATUS_COLORS = {
+  LOW: "#1677ff",
+  NORMAL: "#52c41a",
+  CAUTION: "#fadb14",
+  DANGER: "#fa8c16",
+  CRITICAL: "#f5222d",
+};
+
+const PARAM_LABELS = {
+  WL: "Mực nước (WL)",
+  PH: "pH",
+  DO: "DO",
+  COND: "Độ dẫn điện (COND)",
+  FV: "Tốc độ dòng (FV)",
+};
+
+/** Mực nước hiệu dụng: API đôi khi chỉ gửi trong latestValues.WL */
+function effectiveWaterLevel(station) {
+  const v = station?.waterLevel ?? station?.latestValues?.WL;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function statusColorFromWaterLevel(w) {
+  if (!Number.isFinite(w)) return "#8c8c8c";
+  if (w < 1.5) return WATER_STATUS_COLORS.LOW;
+  if (w < 2.5) return WATER_STATUS_COLORS.NORMAL;
+  if (w < 3.5) return WATER_STATUS_COLORS.CAUTION;
+  if (w < 4.0) return WATER_STATUS_COLORS.DANGER;
+  return WATER_STATUS_COLORS.CRITICAL;
+}
+
+function getStationMarkerColor(station) {
+  const key = String(station?.waterLevelStatus || "").toUpperCase().trim();
+  if (WATER_STATUS_COLORS[key]) return WATER_STATUS_COLORS[key];
+  return statusColorFromWaterLevel(effectiveWaterLevel(station));
+}
+
+/** Marker “sông” khi không có trạm trên map: tô màu theo mực nước đang xem (chi tiết API) */
+function getRiverOnlyPinColor(riverId, effectiveSelectedId, selectedDetail) {
+  if (
+    riverId === effectiveSelectedId &&
+    selectedDetail &&
+    Number.isFinite(Number(selectedDetail.level))
+  ) {
+    return statusColorFromWaterLevel(Number(selectedDetail.level));
+  }
+  return "#1890ff";
+}
+
+function createStationStatusIcon(color) {
+  return L.divIcon({
+    className: "river-map-station-marker",
+    html: `<span class="river-map-station-marker-inner" aria-hidden="true">
+    <svg width="28" height="38" viewBox="0 0 28 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 24 14 24s14-13.5 14-24C28 6.268 21.732 0 14 0z" fill="${color}"/>
+      <circle cx="14" cy="14" r="6" fill="#fff"/>
+    </svg>
+  </span>`,
+    iconSize: [28, 38],
+    iconAnchor: [14, 38],
+    popupAnchor: [0, -38],
+  });
+}
+
+const stationIconByColor = {};
+function getStationStatusIcon(color) {
+  if (!stationIconByColor[color]) {
+    stationIconByColor[color] = createStationStatusIcon(color);
+  }
+  return stationIconByColor[color];
+}
+
+function waterStatusTagColor(status) {
+  const k = String(status || "").toUpperCase();
+  if (k === "LOW") return "blue";
+  if (k === "NORMAL") return "success";
+  if (k === "CAUTION") return "gold";
+  if (k === "DANGER") return "orange";
+  if (k === "CRITICAL") return "red";
+  return "default";
+}
+
+/** Khi API không gửi waterLevelStatus nhưng có mực nước số */
+function inferStatusFromWaterLevel(w) {
+  if (!Number.isFinite(w)) return null;
+  if (w < 1.5) return "LOW";
+  if (w < 2.5) return "NORMAL";
+  if (w < 3.5) return "CAUTION";
+  if (w < 4.0) return "DANGER";
+  return "CRITICAL";
+}
 
 function MapRecenter({ position }) {
   const map = useMap();
@@ -84,6 +208,7 @@ function RiverMap() {
   const [activeFilter, setActiveFilter] = useState("all");
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState("");
+  const [mapStations, setMapStations] = useState([]);
 
   const majorRivers = useMemo(
     () => riversData.filter((r) => r.type === "major"),
@@ -99,11 +224,22 @@ function RiverMap() {
     async function fetchRivers() {
       try {
         setLoading(true);
-        const [list, stationsRes] = await Promise.all([
+        const [list, stationsRes, mapRes] = await Promise.all([
           getRivers(),
           getStations().catch(() => []),
+          getStationsMap().catch(() => []),
         ]);
         if (cancelled) return;
+        const mapPayload = mapRes?.data ?? mapRes;
+        const mapList = Array.isArray(mapPayload) ? mapPayload : [];
+        setMapStations(
+          mapList.filter((s) => {
+            const lat = Number(s?.latitude);
+            const lng = Number(s?.longitude);
+            return Number.isFinite(lat) && Number.isFinite(lng) && s?.isActive !== false;
+          })
+        );
+
         const stationList = Array.isArray(stationsRes?.data) ? stationsRes.data : Array.isArray(stationsRes) ? stationsRes : [];
         const positionByRiverId = {};
         stationList.forEach((s) => {
@@ -114,10 +250,20 @@ function RiverMap() {
             positionByRiverId[rid] = [Number(lat), Number(lng)];
           }
         });
-        const mapped = (list || []).map((r, index) => {
+        const mapped = (list || []).map((r) => {
           const fromStation = positionByRiverId[r.riverId];
-          const lat = r.latitude ?? fromStation?.[0] ?? DEFAULT_CENTER[0] + (index % 5) * 0.05;
-          const lng = r.longitude ?? fromStation?.[1] ?? DEFAULT_CENTER[1] + (index % 5) * 0.05;
+          const hasRiverCoords =
+            r.latitude != null &&
+            r.longitude != null &&
+            Number.isFinite(Number(r.latitude)) &&
+            Number.isFinite(Number(r.longitude));
+          const positionReliable = hasRiverCoords || Boolean(fromStation);
+          let position = null;
+          if (hasRiverCoords) {
+            position = [Number(r.latitude), Number(r.longitude)];
+          } else if (fromStation) {
+            position = [fromStation[0], fromStation[1]];
+          }
           return {
             id: r.riverId,
             name: r.riverName ?? r.name ?? "",
@@ -130,7 +276,8 @@ function RiverMap() {
             flow: 0,
             type: r.riverType === "MAIN" || r.riverType === "main" ? "major" : "branch",
             parentId: r.parentRiverId ?? null,
-            position: [Number(lat), Number(lng)],
+            position,
+            positionReliable,
           };
         });
         setRiversData(mapped);
@@ -203,6 +350,23 @@ function RiverMap() {
     return displayedRivers[0]?.id ?? null;
   }, [displayedRivers, selectedId]);
 
+  /** Sông đã có trạm trên map (theo riverId hoặc tên sông khớp với trạm — tránh lệch id giữa API) */
+  const riverIdsWithMapStations = useMemo(() => {
+    const set = new Set();
+    mapStations.forEach((s) => {
+      const rid = s?.riverId ?? s?.riverID;
+      if (rid != null && Number.isFinite(Number(rid))) set.add(Number(rid));
+      const sn = normalizeRiverLabel(s.riverName);
+      if (!sn || sn.length < 3) return;
+      riversData.forEach((r) => {
+        const rn = normalizeRiverLabel(r.name);
+        if (!rn) return;
+        if (sn === rn || rn.includes(sn) || sn.includes(rn)) set.add(Number(r.id));
+      });
+    });
+    return set;
+  }, [mapStations, riversData]);
+
   const selectedMajorId = useMemo(() => {
     const r = riversData.find((x) => x.id === effectiveSelectedId);
     if (!r) return null;
@@ -273,7 +437,19 @@ function RiverMap() {
     return { key: "normal", label: "AN TOAN", note: "Muc nuoc dang o muc binh thuong." };
   }, [selectedRiver?.level]);
 
-  const mapCenter = selectedRiver?.position ?? DEFAULT_CENTER;
+  const mapCenter = useMemo(() => {
+    if (!selectedRiver) return DEFAULT_CENTER;
+    if (selectedRiver.positionReliable && selectedRiver.position?.length === 2) {
+      return selectedRiver.position;
+    }
+    const st = findMapStationForRiver(selectedRiver, mapStations);
+    if (st) {
+      const lat = Number(st.latitude);
+      const lng = Number(st.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    }
+    return DEFAULT_CENTER;
+  }, [selectedRiver, mapStations]);
 
   if (loading) {
     return (
@@ -360,32 +536,112 @@ function RiverMap() {
                     attribution="&copy; OpenStreetMap contributors"
                   />
 
-                  {displayedRivers.map((river) => (
-                    <Marker
-                      key={river.id}
-                      position={river.position}
-                      icon={locationMarkerIcon}
-                      eventHandlers={{
-                        click: () => setSelectedId(river.id),
-                      }}
-                    >
-                      <Popup>
-                        <strong>{river.name}</strong>
-                        <br />
-                        {river.country}
-                        <br />
-                        Level: {(selectedDetail && river.id === effectiveSelectedId ? selectedDetail.level : river.level).toFixed(2)} m
-                      </Popup>
-                    </Marker>
-                  ))}
+                  {displayedRivers
+                    .filter(
+                      (river) =>
+                        river.positionReliable &&
+                        river.position &&
+                        !riverIdsWithMapStations.has(Number(river.id))
+                    )
+                    .map((river) => {
+                      const pinColor = getRiverOnlyPinColor(
+                        river.id,
+                        effectiveSelectedId,
+                        selectedDetail
+                      );
+                      return (
+                        <Marker
+                          key={river.id}
+                          position={river.position}
+                          icon={
+                            pinColor === "#1890ff"
+                              ? locationMarkerIcon
+                              : getStationStatusIcon(pinColor)
+                          }
+                          eventHandlers={{
+                            click: () => setSelectedId(river.id),
+                          }}
+                        >
+                          <Popup>
+                            <strong>{river.name}</strong>
+                            <br />
+                            {river.country}
+                            <br />
+                            Level:{" "}
+                            {(selectedDetail && river.id === effectiveSelectedId
+                              ? selectedDetail.level
+                              : river.level
+                            ).toFixed(2)}{" "}
+                            m
+                          </Popup>
+                        </Marker>
+                      );
+                    })}
+
+                  {mapStations.map((s) => {
+                    const lat = Number(s.latitude);
+                    const lng = Number(s.longitude);
+                    const color = getStationMarkerColor(s);
+                    const wl = effectiveWaterLevel(s);
+                    const statusLabel =
+                      s.waterLevelStatus ?? inferStatusFromWaterLevel(wl) ?? "—";
+                    const latest = s.latestValues && typeof s.latestValues === "object" ? s.latestValues : {};
+                    return (
+                      <Marker
+                        key={`station-${s.stationId}`}
+                        position={[lat, lng]}
+                        icon={getStationStatusIcon(color)}
+                      >
+                        <Popup>
+                          <div className="river-map-station-popup">
+                            <div className="river-map-station-popup-title">{s.stationName}</div>
+                            {s.stationCode ? (
+                              <div className="river-map-station-popup-meta">{s.stationCode}</div>
+                            ) : null}
+                            <div className="river-map-station-popup-row">
+                              <span>Sông</span>
+                              <strong>{s.riverName ?? "—"}</strong>
+                            </div>
+                            <div className="river-map-station-popup-row">
+                              <span>Mực nước</span>
+                              <strong>
+                                {Number.isFinite(wl) ? `${wl.toFixed(2)} m` : "—"}
+                              </strong>
+                            </div>
+                            <div className="river-map-station-popup-row">
+                              <span>Trạng thái</span>
+                              <Tag color={waterStatusTagColor(statusLabel)}>
+                                {statusLabel}
+                              </Tag>
+                            </div>
+                            {s.lastUpdatedAt ? (
+                              <div className="river-map-station-popup-time">
+                                Cập nhật: {String(s.lastUpdatedAt).replace("T", " ").slice(0, 19)}
+                              </div>
+                            ) : null}
+                            <div className="river-map-station-popup-values-head">Giá trị gần nhất</div>
+                            <ul className="river-map-station-popup-values">
+                              {Object.keys(latest).length === 0 ? (
+                                <li>Chưa có dữ liệu</li>
+                              ) : (
+                                Object.entries(latest).map(([code, val]) => (
+                                  <li key={code}>
+                                    <span>{PARAM_LABELS[code] ?? code}</span>
+                                    <span>{val != null ? Number(val).toFixed(2) : "—"}</span>
+                                  </li>
+                                ))
+                              )}
+                            </ul>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    );
+                  })}
                 </MapContainer>
 
                 {selectedRiver && (
                   <div className="river-map-info-card">
                     <div className="river-map-info-title">{selectedRiver.name}</div>
-                    <div className={`river-level-badge river-level-badge-${levelStatus.key}`}>
-                      {levelStatus.label}
-                    </div>
                     <div className="river-map-info-row">{selectedRiver.region}</div>
                     <div className="river-map-info-row">
                       Mực nước: <strong>{(selectedRiver.level ?? 0).toFixed(2)} m</strong>
@@ -397,10 +653,13 @@ function RiverMap() {
                 )}
               </div>
 
-              <div className="river-map-legend">
-                <span className="legend-item legend-high">High Water Level (&gt; 3.0m)</span>
-                <span className="legend-item legend-normal">Normal Level</span>
-                <span className="legend-item legend-low">Low Water Level (&lt; 1.0m)</span>
+              <div className="river-map-legend river-map-legend-stations">
+                <span className="legend-caption">Trạm đo (mực nước)</span>
+                <span className="legend-item legend-wl-low">&lt; 1.5m · Thấp (LOW)</span>
+                <span className="legend-item legend-wl-normal">1.5–2.5m · Bình thường</span>
+                <span className="legend-item legend-wl-caution">2.5–3.5m · Cảnh báo</span>
+                <span className="legend-item legend-wl-danger">3.5–4.0m · Nguy hiểm</span>
+                <span className="legend-item legend-wl-critical">≥ 4.0m · Rất nghiêm trọng</span>
               </div>
               </div>
             </div>

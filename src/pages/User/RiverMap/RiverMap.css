@@ -12,6 +12,72 @@
   display: block;
 }
 
+.river-map-station-marker {
+  background: none !important;
+  border: none !important;
+}
+.river-map-station-marker-inner {
+  display: block;
+  line-height: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+.river-map-station-marker-inner svg {
+  display: block;
+}
+
+.river-map-station-popup {
+  min-width: 220px;
+  max-width: 280px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-main, #0f172a);
+}
+.river-map-station-popup-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+.river-map-station-popup-meta {
+  font-size: 11px;
+  color: var(--text-muted, #64748b);
+  margin-bottom: 8px;
+}
+.river-map-station-popup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.river-map-station-popup-time {
+  font-size: 11px;
+  color: var(--text-muted, #64748b);
+  margin: 8px 0 6px;
+}
+.river-map-station-popup-values-head {
+  font-weight: 600;
+  font-size: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+.river-map-station-popup-values {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+.river-map-station-popup-values li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.35);
+}
+.river-map-station-popup-values li:last-child {
+  border-bottom: 0;
+}
+
 .river-map-page {
   padding: 32px 60px 48px;
   background: var(--page-bg);
@@ -434,6 +500,38 @@
 
 .legend-low::before {
   background: #0ea5e9;
+}
+
+.river-map-legend-stations {
+  align-items: center;
+}
+
+.river-map-legend-stations .legend-caption {
+  width: 100%;
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 2px;
+  color: var(--text-main);
+}
+
+.legend-wl-low::before {
+  background: #1677ff;
+}
+
+.legend-wl-normal::before {
+  background: #52c41a;
+}
+
+.legend-wl-caution::before {
+  background: #fadb14;
+}
+
+.legend-wl-danger::before {
+  background: #fa8c16;
+}
+
+.legend-wl-critical::before {
+  background: #f5222d;
 }
 
 .river-map-right {

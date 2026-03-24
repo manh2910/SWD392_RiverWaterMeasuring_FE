@@ -29,6 +29,7 @@ import {
   updateDataPackageStatus,
   deleteDataPackage,
 } from "../../../api/dataPackageApi";
+import { getStations } from "../../../api/stationApi";
 
 import "./DataPackages.css";
 
@@ -41,9 +42,18 @@ const normalizeStatus = (s) => {
   return "error";
 };
 
+const MAX_PAGES = 15;
+
 export default function DataPackages() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [stationOptions, setStationOptions] = useState([]);
+  const [selectedStationId, setSelectedStationId] = useState();
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
 
   const [summary, setSummary] = useState({
     total: 0,
@@ -58,37 +68,61 @@ export default function DataPackages() {
 
   /* ================= FETCH DATA ================= */
 
-  const fetchData = async () => {
+  const fetchData = async ({ stationId, page = 1, size = 10 } = {}) => {
     setLoading(true);
 
     try {
+      const params = {};
+      if (stationId != null) {
+        params.stationId = Number(stationId);
+      }
+      params.page = Math.max(Number(page) - 1, 0);
+      params.size = Number(size) || 10;
+
       const [listRes, summaryRes] = await Promise.all([
-        getDataPackages(),
+        getDataPackages(params),
         getDataPackagesSummary().catch(() => ({})),
       ]);
 
-      const list = Array.isArray(listRes?.data)
-        ? listRes.data
-        : Array.isArray(listRes)
-        ? listRes
+      const payload = listRes?.data ?? listRes;
+      const list = Array.isArray(payload?.content)
+        ? payload.content
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+        ? payload
         : [];
 
-      const mapped = list.map((p) => ({
-        key: p.id ?? p.dataPackageId,
-        id: p.id ?? p.dataPackageId,
+      const mapped = list.map((p, idx) => {
+        const packageId = p.packageId ?? p.id ?? p.dataPackageId ?? null;
+        return {
+          key:
+            packageId ??
+            `${p.stationId ?? "station"}-${p.receivedAt ?? p.updatedAt ?? idx}`,
+          id: packageId,
         station: p.stationName ?? p.station ?? p.stationId ?? "-",
-        packageCount: p.observationCount ?? p.packageCount ?? p.count ?? 0,
-        lastUpdate: p.lastUpdate ?? p.updatedAt ?? p.createdAt ?? "-",
+          packageCount: p.observationCount ?? p.packageCount ?? p.count ?? 0,
+          lastUpdate:
+            p.receivedAt ?? p.lastUpdate ?? p.updatedAt ?? p.createdAt ?? "-",
         status: normalizeStatus(p.status),
-      }));
+        };
+      });
 
       setData(mapped);
+      const backendTotal = Number(payload?.totalElements ?? mapped.length);
+      const cappedTotal = Math.min(backendTotal, size * MAX_PAGES);
+      setPagination((prev) => ({
+        ...prev,
+        current: page,
+        pageSize: size,
+        total: cappedTotal,
+      }));
 
       const statuses = mapped.map((p) => p.status);
 
       if (summaryRes && typeof summaryRes === "object") {
         setSummary({
-          total: summaryRes.total ?? mapped.length,
+          total: summaryRes.total ?? payload?.totalElements ?? mapped.length,
           processed:
             summaryRes.processed ??
             statuses.filter((s) => s === "processed").length,
@@ -116,7 +150,35 @@ export default function DataPackages() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData({
+      stationId: selectedStationId,
+      page: pagination.current,
+      size: pagination.pageSize,
+    });
+  }, [selectedStationId, pagination.current, pagination.pageSize]);
+
+  useEffect(() => {
+    const loadStations = async () => {
+      try {
+        const stationRes = await getStations();
+        const list = Array.isArray(stationRes?.data)
+          ? stationRes.data
+          : Array.isArray(stationRes)
+          ? stationRes
+          : [];
+
+        setStationOptions(
+          list.map((s) => ({
+            value: Number(s.stationId),
+            label: s.stationName || `Station ${s.stationId}`,
+          }))
+        );
+      } catch (err) {
+        message.error("Failed to load stations");
+      }
+    };
+
+    loadStations();
   }, []);
 
   /* ================= UPDATE STATUS ================= */
@@ -138,7 +200,11 @@ export default function DataPackages() {
       message.success("Status updated");
 
       setStatusModalOpen(false);
-      fetchData();
+      fetchData({
+        stationId: selectedStationId,
+        page: pagination.current,
+        size: pagination.pageSize,
+      });
     } catch (err) {
       message.error(err.response?.data?.message || "Update failed");
     }
@@ -158,7 +224,11 @@ export default function DataPackages() {
 
           message.success("Data package deleted");
 
-          fetchData();
+          fetchData({
+            stationId: selectedStationId,
+            page: pagination.current,
+            size: pagination.pageSize,
+          });
         } catch (err) {
           message.error(err.response?.data?.message || "Delete failed");
         }
@@ -307,17 +377,41 @@ export default function DataPackages() {
 
       <Card
         title={
-          <span>
-            <InboxOutlined style={{ marginRight: 8 }} />
-            All Data Packages
-          </span>
+          <Space wrap>
+            <span>
+              <InboxOutlined style={{ marginRight: 8 }} />
+              All Data Packages
+            </span>
+            <Select
+              allowClear
+              style={{ minWidth: 220 }}
+              placeholder="Filter by station"
+              value={selectedStationId}
+              onChange={(value) => {
+                setSelectedStationId(value);
+                setPagination((prev) => ({ ...prev, current: 1 }));
+              }}
+              options={stationOptions}
+            />
+          </Space>
         }
       >
         <Table
           columns={columns}
           dataSource={data}
           loading={loading}
-          pagination={{ pageSize: 10 }}
+          pagination={{
+            current: pagination.current,
+            pageSize: 10,
+            total: pagination.total,
+            showSizeChanger: false,
+          }}
+          onChange={(pager) => {
+            setPagination((prev) => ({
+              ...prev,
+              current: pager.current || 1,
+            }));
+          }}
           rowKey="key"
           size="large"
         />

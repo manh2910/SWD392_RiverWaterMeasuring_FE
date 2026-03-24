@@ -26,6 +26,12 @@ export const getStations = async () => {
   return res.data;
 };
 
+// ================= GET STATIONS FOR MAP (telemetry + water level status) =================
+export const getStationsMap = async () => {
+  const res = await api.get("/stations/map");
+  return res.data;
+};
+
 // ================= CREATE STATION =================
 export const createStation = async (data) => {
   const res = await api.post("/stations", data);
