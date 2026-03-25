@@ -1,0 +1,191 @@
+/* ===== AdminMap Component ===== */
+
+.admin-map-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Toolbar */
+.admin-map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-map-toolbar-icon {
+  color: #1890ff;
+  font-size: 16px;
+}
+
+.admin-map-toolbar-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+  white-space: nowrap;
+}
+
+.admin-map-river-select {
+  min-width: 220px;
+  max-width: 340px;
+  flex: 1;
+}
+
+.admin-map-river-name {
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* Map wrapper */
+.admin-map-map-wrap {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: #f0f4f8;
+}
+
+.admin-map-leaflet {
+  width: 100%;
+  height: 100%;
+}
+
+.admin-map-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-map-empty-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(240, 244, 248, 0.85);
+  z-index: 1;
+}
+
+/* Marker (Leaflet divIcon) */
+.admin-map-station-marker {
+  background: none !important;
+  border: none !important;
+}
+
+.admin-map-station-marker-inner {
+  display: block;
+  line-height: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.admin-map-station-marker-inner svg {
+  display: block;
+}
+
+/* Popup */
+.admin-map-popup {
+  min-width: 200px;
+  max-width: 260px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+.admin-map-popup-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.admin-map-popup-meta {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.admin-map-popup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.admin-map-popup-row span {
+  color: #64748b;
+}
+
+.admin-map-popup-time {
+  font-size: 11px;
+  color: #64748b;
+  margin: 8px 0 6px;
+}
+
+.admin-map-popup-values-head {
+  font-weight: 600;
+  font-size: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.admin-map-popup-values {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.admin-map-popup-values li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.35);
+}
+
+.admin-map-popup-values li:last-child {
+  border-bottom: 0;
+}
+
+/* Legend */
+.admin-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.admin-map-legend-title {
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+}
+
+.admin-map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted, #64748b);
+}
+
+.admin-map-legend-item::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.admin-map-legend-low::before    { background: #1677ff; }
+.admin-map-legend-normal::before  { background: #52c41a; }
+.admin-map-legend-caution::before { background: #fadb14; }
+.admin-map-legend-danger::before  { background: #fa8c16; }
+.admin-map-legend-critical::before{ background: #f5222d; }

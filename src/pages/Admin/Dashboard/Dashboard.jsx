@@ -22,6 +22,7 @@ import { Line } from "@ant-design/plots";
 
 import { getRiverStatus } from "../../../api/observationApi";
 import { sendAlert as sendAlertAPI } from "../../../api/alertApi";
+import AdminMap from "../../../components/Admin/AdminMap/AdminMap";
 
 import "./Dashboard.css";
 
@@ -310,6 +311,12 @@ export default function Dashboard() {
 
       <Card title="River Sensor Monitoring" style={{ marginTop: 30 }}>
         {chartData.length > 0 ? <Line {...chartConfig} /> : <p>No chart data</p>}
+      </Card>
+
+      {/* MAP */}
+
+      <Card title="River Station Map" style={{ marginTop: 30 }}>
+        <AdminMap />
       </Card>
     </div>
   );
