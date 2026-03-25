@@ -98,6 +98,73 @@
   font-size: 16px;
 }
 
+.dashboard-chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+/* ===== PER-PARAM CHART CARD ===== */
+.dashboard-param-chart {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 12px 14px 8px;
+  background: var(--bg-card, #fff);
+}
+
+.dashboard-param-chart-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dashboard-param-chart-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dashboard-param-chart-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-main, #0f172a);
+  flex: 1;
+}
+
+.dashboard-param-chart-count {
+  font-size: 11px;
+  color: var(--text-muted, #64748b);
+}
+
+/* ===== ALERT LIST ROW ===== */
+.dashboard-alert-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.dashboard-alert-msg {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.dashboard-alert-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .table-card .anticon {
   font-size: 16px;
 }
