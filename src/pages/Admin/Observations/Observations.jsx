@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, Table, Row, Col, Statistic, Select, Space, message } from "antd";
-import {
-  BarChartOutlined,
-  CheckCircleOutlined,
-  WarningOutlined,
-  CloseCircleOutlined,
-} from "@ant-design/icons";
+import { BarChartOutlined } from "@ant-design/icons";
 import { getStations } from "../../../api/stationApi";
 import { getQualityStats, getObservationsPage } from "../../../api/observationApi";
 import "./Observations.css";
@@ -30,7 +25,20 @@ export default function Observations() {
   const [selectedStationId, setSelectedStationId] = useState(null);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({ total: 0, goodCount: 0, suspectCount: 0, badCount: 0 });
+  // total comes from /stats API; quality counts are always derived from loaded rows
+  const [totalCount, setTotalCount] = useState(0);
+  const [qualityCounts, setQualityCounts] = useState({ good: 0, suspect: 0, bad: 0 });
+
+  /* Normalize stats response: handle any field name the BE might return */
+  const normalizeStats = (raw) => {
+    if (!raw) return null;
+    return {
+      total:        raw.total        ?? raw.totalObservations ?? raw.totalCount ?? raw.count ?? 0,
+      goodCount:    raw.goodCount    ?? raw.good              ?? raw.goodQuality    ?? raw.GOOD    ?? 0,
+      suspectCount: raw.suspectCount ?? raw.suspect           ?? raw.suspectQuality ?? raw.SUSPECT ?? 0,
+      badCount:     raw.badCount     ?? raw.bad               ?? raw.badQuality     ?? raw.BAD     ?? 0,
+    };
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -45,7 +53,9 @@ export default function Observations() {
           setSelectedStationId(stationList[0].stationId);
         }
         if (statsRes) {
-          setStats(statsRes);
+          const normalized = normalizeStats(statsRes);
+          // Only use the total from the stats API; quality counts come from loaded rows
+          setTotalCount(normalized.total || 0);
         }
       } catch (err) {
         console.error("INIT ERROR:", err);
@@ -83,6 +93,13 @@ export default function Observations() {
         }));
 
         setData(rows);
+
+        // Always derive quality counts from loaded rows (avoids race with stats API)
+        setQualityCounts({
+          good:    rows.filter((r) => r.status === "good").length,
+          suspect: rows.filter((r) => r.status === "suspect").length,
+          bad:     rows.filter((r) => r.status === "bad").length,
+        });
       } catch (err) {
         console.error("LOAD OBSERVATIONS ERROR:", err);
         message.error("Failed to load observations");
@@ -118,22 +135,6 @@ export default function Observations() {
       ),
     },
     { title: "Quality", dataIndex: "qualityFlag", key: "qualityFlag" },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) => {
-        if (status === "good") {
-          return <span style={{ color: "#52c41a" }}><CheckCircleOutlined /> GOOD</span>;
-        }
-
-        if (status === "suspect") {
-          return <span style={{ color: "#faad14" }}><WarningOutlined /> SUSPECT</span>;
-        }
-
-        return <span style={{ color: "#f5222d" }}><CloseCircleOutlined /> BAD</span>;
-      },
-    },
   ];
 
   return (
@@ -143,7 +144,7 @@ export default function Observations() {
           <Card className="stat-card">
             <Statistic
               title="Total Observations"
-              value={stats.total}
+              value={totalCount}
               prefix={<BarChartOutlined />}
               valueStyle={{ color: "#1890ff", fontSize: "28px" }}
             />
@@ -151,17 +152,17 @@ export default function Observations() {
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
-            <Statistic title="Good Quality" value={stats.goodCount} valueStyle={{ color: "#52c41a", fontSize: "28px" }} />
+            <Statistic title="Good Quality" value={qualityCounts.good} valueStyle={{ color: "#52c41a", fontSize: "28px" }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
-            <Statistic title="Suspect" value={stats.suspectCount} valueStyle={{ color: "#faad14", fontSize: "28px" }} />
+            <Statistic title="Suspect" value={qualityCounts.suspect} valueStyle={{ color: "#faad14", fontSize: "28px" }} />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card">
-            <Statistic title="Bad Quality" value={stats.badCount} valueStyle={{ color: "#f5222d", fontSize: "28px" }} />
+            <Statistic title="Bad Quality" value={qualityCounts.bad} valueStyle={{ color: "#f5222d", fontSize: "28px" }} />
           </Card>
         </Col>
       </Row>
