@@ -125,6 +125,38 @@
   max-width: 100%;
 }
 
+.river-map-selectors {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.river-map-select {
+  width: 260px;
+  max-width: 100%;
+}
+
+.river-map-select-full {
+  width: 100%;
+}
+
+.river-map-selected-station {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.river-map-selected-station strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-main);
+}
+
 .river-map-layout {
   display: grid;
   grid-template-columns: minmax(0, 2.5fr) minmax(0, 1.5fr);
