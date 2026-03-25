@@ -27,9 +27,9 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   CartesianGrid,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 
 import AdminMap from "../../../components/Admin/AdminMap/AdminMap";
@@ -50,6 +50,22 @@ const PARAM_COLORS = {
   FV:   "#eb2f96",
 };
 
+const PARAM_LABELS = {
+  PH:   "pH",
+  DO:   "Dissolved Oxygen (DO)",
+  COND: "Conductivity (COND)",
+  WL:   "Water Level (WL)",
+  FV:   "Flow Velocity (FV)",
+};
+
+const PARAM_UNITS = {
+  PH:   "",
+  DO:   "mg/L",
+  COND: "µS/cm",
+  WL:   "m",
+  FV:   "m/s",
+};
+
 const SEVERITY_COLOR = {
   LOW:      "green",
   MEDIUM:   "gold",
@@ -66,22 +82,21 @@ function extractList(res) {
   return [];
 }
 
-/* Build recharts-friendly rows from getObservationsPage items.
-   Each item: { observedAt, parameterCode, value }
-   Output: [{ time: "HH:mm", PH: 7.2, DO: 6.1, … }, …] */
-function buildChartRows(observations) {
-  const byTime = {};
+/* Build per-parameter chart data: { PH: [{time, value}, ...], DO: [...], ... } */
+function buildChartData(observations) {
+  const perParam = {};
   observations.forEach((o) => {
     const code = o.parameterCode ?? o.parameter;
     const val  = Number(o.value ?? o.averageValue);
-    // observedAt is the field used by Observations page
     const raw  = o.observedAt ?? o.observationTime ?? o.time ?? o.timestamp ?? "";
     const time = String(raw).slice(0, 16).replace("T", " ");
     if (!code || !time || !Number.isFinite(val)) return;
-    if (!byTime[time]) byTime[time] = { time };
-    byTime[time][code] = val;
+    if (!perParam[code]) perParam[code] = [];
+    perParam[code].push({ time, value: val });
   });
-  return Object.values(byTime).sort((a, b) => (a.time > b.time ? 1 : -1));
+  // Sort each param's data by time
+  Object.values(perParam).forEach((arr) => arr.sort((a, b) => (a.time > b.time ? 1 : -1)));
+  return perParam;
 }
 
 export default function Dashboard() {
@@ -93,7 +108,7 @@ export default function Dashboard() {
 
   /* ─── observation chart ─── */
   const [obsLoading, setObsLoading] = useState(false);
-  const [obsData, setObsData]       = useState([]);
+  const [obsData, setObsData]       = useState({});   // { [code]: [{time,value}] }
   const [paramCodes, setParamCodes] = useState([]);
 
   /* ─── alert history ─── */
@@ -141,7 +156,7 @@ export default function Dashboard() {
   /* Fetch observations when station changes */
   useEffect(() => {
     if (selectedStationId == null) {
-      setObsData([]);
+      setObsData({});
       setParamCodes([]);
       return;
     }
@@ -158,10 +173,10 @@ export default function Dashboard() {
         size: 500,
         sort: "observedAt,asc",
       });
-      const list  = res?.content ?? (Array.isArray(res) ? res : []);
-      const rows  = buildChartRows(list);
-      const codes = [...new Set(list.map((o) => o.parameterCode ?? o.parameter).filter(Boolean))];
-      setObsData(rows);
+      const list   = res?.content ?? (Array.isArray(res) ? res : []);
+      const perParam = buildChartData(list);
+      const codes    = Object.keys(perParam);
+      setObsData(perParam);
       setParamCodes(codes);
     } catch (err) {
       console.error(err);
@@ -178,7 +193,10 @@ export default function Dashboard() {
       const list = extractList(res);
       setAlerts(list.slice(0, 20));
     } catch (err) {
-      console.error(err);
+      // 401 = not logged in or token expired, don't spam error toast
+      if (err?.response?.status !== 401) {
+        console.error(err);
+      }
     } finally {
       setAlertLoading(false);
     }
@@ -261,7 +279,7 @@ export default function Dashboard() {
           <Card className="stat-card">
             <Statistic
               title="Observation Data Points"
-              value={obsData.length * (paramCodes.length || 1)}
+              value={Object.values(obsData).reduce((s, a) => s + a.length, 0)}
               prefix={<ClockCircleOutlined />}
             />
           </Card>
@@ -273,9 +291,9 @@ export default function Dashboard() {
         <AdminMap />
       </Card>
 
-      {/* ── OBSERVATION CHART ── */}
+      {/* ── OBSERVATION CHARTS (one per parameter) ── */}
       <Card
-        title="Station Observations Chart"
+        title="Station Observations"
         style={{ marginTop: 24 }}
         extra={
           <Space wrap>
@@ -309,37 +327,63 @@ export default function Dashboard() {
           <div className="dashboard-chart-loading">
             <Spin tip="Loading observations..." />
           </div>
-        ) : obsData.length === 0 ? (
+        ) : paramCodes.length === 0 ? (
           <Empty description="No observation data for this station" />
         ) : (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={obsData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 11 }}
-                tickFormatter={(v) => String(v).slice(11, 16)}
-                minTickGap={40}
-              />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip
-                formatter={(val, name) => [Number(val).toFixed(3), name]}
-                labelFormatter={(l) => `Time: ${l}`}
-              />
-              <Legend />
-              {paramCodes.map((code) => (
-                <Line
-                  key={code}
-                  type="monotone"
-                  dataKey={code}
-                  stroke={PARAM_COLORS[code] ?? "#8884d8"}
-                  dot={obsData.length <= 50 ? { r: 3 } : false}
-                  strokeWidth={2}
-                  connectNulls
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+          <Row gutter={[16, 16]}>
+            {paramCodes.map((code) => {
+              const data   = obsData[code] ?? [];
+              const color  = PARAM_COLORS[code] ?? "#8884d8";
+              const label  = PARAM_LABELS[code] ?? code;
+              const unit   = PARAM_UNITS[code] ?? "";
+              const values = data.map((d) => d.value);
+              const min    = values.length ? Math.min(...values) : 0;
+              const max    = values.length ? Math.max(...values) : 1;
+              const pad    = (max - min) * 0.15 || 1;
+              return (
+                <Col xs={24} md={12} key={code}>
+                  <div className="dashboard-param-chart">
+                    <div className="dashboard-param-chart-header">
+                      <span className="dashboard-param-chart-dot" style={{ background: color }} />
+                      <span className="dashboard-param-chart-title">{label}</span>
+                      <span className="dashboard-param-chart-count">{data.length} pts</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={data} margin={{ top: 6, right: 16, left: 0, bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                        <XAxis
+                          dataKey="time"
+                          tick={{ fontSize: 10 }}
+                          tickFormatter={(v) => String(v).slice(11, 16)}
+                          minTickGap={40}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10 }}
+                          domain={[min - pad, max + pad]}
+                          tickFormatter={(v) => Number(v).toFixed(1)}
+                          width={50}
+                          unit={unit ? ` ${unit}` : ""}
+                        />
+                        <Tooltip
+                          formatter={(val) => [`${Number(val).toFixed(3)}${unit ? ` ${unit}` : ""}`, label]}
+                          labelFormatter={(l) => `Time: ${l}`}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          stroke={color}
+                          dot={data.length <= 30 ? { r: 3, fill: color } : false}
+                          strokeWidth={2}
+                          connectNulls
+                          isAnimationActive={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Col>
+              );
+            })}
+          </Row>
         )}
       </Card>
 
@@ -366,9 +410,8 @@ export default function Dashboard() {
             dataSource={alerts}
             size="small"
             renderItem={(alert) => {
-              const severity = String(
-                alert.severity ?? alert.alertSeverity ?? "LOW"
-              ).toUpperCase();
+              const severity = String(alert.severity ?? "LOW").toUpperCase();
+              const qualityFlag = String(alert.qualityFlag ?? "");
               const resolved = alert.resolved ?? alert.isResolved ?? false;
               const time = String(
                 alert.triggeredAt ?? alert.createdAt ?? alert.alertTime ?? ""
@@ -381,15 +424,30 @@ export default function Dashboard() {
                     </Tag>
                     <div className="dashboard-alert-msg">
                       <Text strong style={{ fontSize: 13 }}>
-                        {alert.message ?? alert.alertMessage ?? "—"}
+                        {alert.parameterName ?? alert.message ?? alert.alertMessage ?? "—"}
+                        {alert.triggeredValue != null && (
+                          <span style={{ fontWeight: 400, color: "#64748b", marginLeft: 6 }}>
+                            = {alert.triggeredValue}
+                          </span>
+                        )}
                       </Text>
                       {alert.stationName && (
                         <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                           <EnvironmentOutlined /> {alert.stationName}
                         </Text>
                       )}
+                      {alert.riverName && (
+                        <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                          ({alert.riverName})
+                        </Text>
+                      )}
                     </div>
                     <div className="dashboard-alert-meta">
+                      {qualityFlag && (
+                        <Tag color={SEVERITY_COLOR[qualityFlag.toUpperCase()] ?? "default"}>
+                          {qualityFlag}
+                        </Tag>
+                      )}
                       {time && (
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           <ClockCircleOutlined /> {time}
