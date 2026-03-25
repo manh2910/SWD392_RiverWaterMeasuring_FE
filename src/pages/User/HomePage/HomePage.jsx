@@ -8,7 +8,8 @@ import {
   Tag,
   Divider,
   message,
-  Spin
+  Spin,
+  Empty
 } from "antd";
 
 import { useEffect, useState } from "react";
@@ -24,7 +25,7 @@ import Header from "../../../components/User/Header/Header";
 import Footer from "../../../components/User/Footer/Footer";
 
 import { getRivers, getRiverDetail } from "../../../api/riverApi";
-import { getAlerts } from "../../../api/alertApi";
+import { getLatestAlerts } from "../../../api/alertApi";
 import { getParameters } from "../../../api/paraApi";
 
 import "./HomePage.css";
@@ -40,6 +41,23 @@ export default function HomePage() {
   const [alerts, setAlerts] = useState([]);
   const [parameters, setParameters] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const toArray = (payload) =>
+    Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.content)
+      ? payload.content
+      : Array.isArray(payload?.items)
+      ? payload.items
+      : Array.isArray(payload?.alerts)
+      ? payload.alerts
+      : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload)
+      ? payload
+      : [];
+
+  const normalizeFlag = (value) => String(value || "").trim().toUpperCase();
 
   useEffect(() => {
     fetchAllData();
@@ -111,13 +129,18 @@ export default function HomePage() {
 
     try {
 
-      const data = await getAlerts();
+      const data = await getLatestAlerts();
+      const list = toArray(data);
 
-      const formattedAlerts = data.map((a)=>({
+      const formattedAlerts = list.map((a, idx)=>({
 
-        river:`River ID ${a.scopeID}`,
-        message:`${a.parameterCode} threshold triggered`,
-        type:"warning"
+        key: a.alertId ?? a.id ?? idx,
+        riverName: a.riverName || "-",
+        stationName: a.stationName || "-",
+        parameterName: a.parameterName || a.parameterCode || "-",
+        triggeredValue: a.triggeredValue ?? "-",
+        severity: normalizeFlag(a.severity || "-"),
+        qualityFlag: normalizeFlag(a.qualityFlag || "-"),
 
       }));
 
@@ -125,7 +148,8 @@ export default function HomePage() {
 
     } catch (error) {
 
-      console.log("Alert API requires login or no alerts available");
+      console.error("LOAD ACTIVE ALERTS ERROR:", error);
+      setAlerts([]);
 
     }
   };
@@ -360,22 +384,35 @@ export default function HomePage() {
 
         <Row gutter={[16,16]}>
 
-          {alerts.map((alert,index)=>(
+          {alerts.length === 0 ? (
+            <Col span={24}>
+              <Card className="alert-empty-card">
+                <Empty description="Không có cảnh báo đang hoạt động" />
+              </Card>
+            </Col>
+          ) : alerts.map((alert,index)=>(
 
             <Col span={24} key={index}>
 
               <Card className="alert-warning">
 
-                <WarningOutlined/>
+                <WarningOutlined className="alert-warning-icon" />
 
-                <div style={{marginLeft:10}}>
+                <div className="alert-warning-content">
 
-                  <h4>{alert.river}</h4>
-                  <p>{alert.message}</p>
+                  <h4 className="alert-warning-title">{alert.riverName} • {alert.stationName}</h4>
+                  <p className="alert-warning-param">
+                    {alert.parameterName}: <strong>{alert.triggeredValue}</strong>
+                  </p>
+                  <p className="alert-warning-meta">
+                    Severity: {alert.severity || "-"} • Quality: {alert.qualityFlag || "-"}
+                  </p>
 
                 </div>
 
-                <Tag color="orange">THRESHOLD</Tag>
+                <Tag className="alert-warning-tag" color={alert.severity === "CRITICAL" ? "red" : "orange"}>
+                  {alert.severity || "ALERT"}
+                </Tag>
 
               </Card>
 

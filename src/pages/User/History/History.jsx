@@ -1,75 +1,104 @@
-import React, { useState, useEffect } from "react";
-import { Layout, Table, Card, Select, message } from "antd";
+import React, { useEffect, useMemo, useState } from "react";
+import { Layout, Table, Card, Select, Tag, message } from "antd";
 import AppHeader from "../../../components/User/Header/Header";
 import AppFooter from "../../../components/User/Footer/Footer";
-import { getStations } from "../../../api/stationApi";
-import { getObservationHistory } from "../../../api/observationApi";
+import { getAlertHistory } from "../../../api/alertHistoryApi";
 import "./History.css";
 
 const { Content } = Layout;
 
+const toArray = (payload) =>
+  Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.content)
+      ? payload.content
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+const normalizeFlag = (value) => String(value || "").trim().toUpperCase();
+
+const severityColor = (value) => {
+  const v = normalizeFlag(value);
+  if (v === "CRITICAL") return "red";
+  if (v === "HIGH" || v === "WARNING") return "orange";
+  if (v === "MEDIUM") return "gold";
+  if (v === "LOW" || v === "INFO") return "blue";
+  return "default";
+};
+
 export default function History() {
   const [data, setData] = useState([]);
-  const [stations, setStations] = useState([]);
-  const [selectedStationId, setSelectedStationId] = useState(null);
+  const [selectedRiver, setSelectedRiver] = useState("ALL");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const loadStations = async () => {
-      try {
-        const stationRes = await getStations();
-        const stationList = Array.isArray(stationRes?.data) ? stationRes.data : stationRes || [];
-        setStations(stationList);
-
-        if (stationList.length > 0) {
-          setSelectedStationId(stationList[0].stationId);
-        }
-      } catch (error) {
-        console.error("LOAD STATIONS ERROR:", error);
-        message.error("Failed to load stations");
-      }
-    };
-
-    loadStations();
-  }, []);
-
-  useEffect(() => {
-    const loadHistory = async () => {
-      if (!selectedStationId) {
-        return;
-      }
-
+    const loadAlertHistory = async () => {
       setLoading(true);
-
       try {
-        const history = await getObservationHistory(selectedStationId);
-        const rows = (Array.isArray(history) ? history : []).map((item) => ({
-          key: item.observationId,
-          date: item.observedAt ? new Date(item.observedAt).toLocaleString() : "-",
-          station: stations.find((s) => s.stationId === selectedStationId)?.stationName || `Station ${selectedStationId}`,
-          metric: item.parameterName || item.parameterCode,
-          value: `${item.value ?? "-"} ${item.unit || ""}`.trim(),
-          quality: item.qualityFlag || "-",
+        const res = await getAlertHistory();
+        const list = toArray(res);
+        const rows = list.map((item, idx) => ({
+          key: item.alertId ?? item.id ?? idx,
+          riverName: item.riverName || "-",
+          stationName: item.stationName || "-",
+          parameterName: item.parameterName || item.parameterCode || "-",
+          triggeredValue:
+            item.triggeredValue ??
+            "-",
+          severity: normalizeFlag(item.severity || "-"),
+          qualityFlag: normalizeFlag(
+            item.qualityFlag ||
+              "-"
+          ),
         }));
-
         setData(rows);
       } catch (error) {
-        console.error("LOAD HISTORY ERROR:", error);
-        message.error("Failed to load history");
+        console.error("LOAD ALERT HISTORY ERROR:", error);
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) {
+          message.error("Tài khoản hiện tại không có quyền xem lịch sử cảnh báo");
+        } else {
+          message.error("Không tải được lịch sử cảnh báo");
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    loadHistory();
-  }, [selectedStationId, stations]);
+    loadAlertHistory();
+  }, []);
+
+  const riverOptions = useMemo(() => {
+    const rivers = Array.from(new Set(data.map((d) => d.riverName).filter((x) => x && x !== "-")));
+    return [
+      { label: "Tất cả sông", value: "ALL" },
+      ...rivers.map((name) => ({ label: name, value: name })),
+    ];
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    if (selectedRiver === "ALL") return data;
+    return data.filter((row) => row.riverName === selectedRiver);
+  }, [data, selectedRiver]);
 
   const columns = [
-    { title: "Date", dataIndex: "date", key: "date" },
-    { title: "Station", dataIndex: "station", key: "station" },
-    { title: "Metric", dataIndex: "metric", key: "metric" },
-    { title: "Value", dataIndex: "value", key: "value" },
-    { title: "Quality", dataIndex: "quality", key: "quality" },
+    { title: "Sông", dataIndex: "riverName", key: "riverName" },
+    { title: "Trạm", dataIndex: "stationName", key: "stationName" },
+    { title: "Thông số", dataIndex: "parameterName", key: "parameterName" },
+    { title: "Giá trị vượt ngưỡng", dataIndex: "triggeredValue", key: "triggeredValue" },
+    {
+      title: "Mức độ",
+      dataIndex: "severity",
+      key: "severity",
+      render: (value) => <Tag color={severityColor(value)}>{value || "-"}</Tag>,
+    },
+    {
+      title: "Quality Flag",
+      dataIndex: "qualityFlag",
+      key: "qualityFlag",
+      render: (value) => <Tag color={severityColor(value)}>{value || "-"}</Tag>,
+    },
   ];
 
   return (
@@ -77,22 +106,24 @@ export default function History() {
       <AppHeader />
       <Content style={{ padding: "40px 60px", background: "#f5f7fa" }}>
         <Card
-          title="History"
+          title="Lịch sử cảnh báo"
           className="history-card"
           extra={
             <Select
-              style={{ minWidth: 220 }}
-              value={selectedStationId}
-              onChange={setSelectedStationId}
-              placeholder="Select station"
-              options={stations.map((station) => ({
-                label: station.stationName,
-                value: station.stationId,
-              }))}
+              style={{ minWidth: 240 }}
+              value={selectedRiver}
+              onChange={setSelectedRiver}
+              options={riverOptions}
             />
           }
         >
-          <Table columns={columns} dataSource={data} loading={loading} />
+          <Table
+            columns={columns}
+            dataSource={filteredData}
+            loading={loading}
+            rowKey="key"
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+          />
         </Card>
       </Content>
       <AppFooter />

@@ -121,3 +121,53 @@ body.dark {
 .metrics .ant-statistic-content {
   color: var(--text-primary);
 }
+
+/* ========= ACTIVE ALERTS ========= */
+.alert-empty-card {
+  border-radius: 14px;
+  border: 1px dashed var(--border-color);
+}
+
+.alert-warning {
+  border-radius: 14px;
+  border: 1px solid #ffe0b2;
+  background: linear-gradient(180deg, #fffaf2 0%, #ffffff 100%);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.08);
+}
+
+.alert-warning-icon {
+  color: #f59e0b;
+  font-size: 18px;
+  margin-top: 4px;
+}
+
+.alert-warning-content {
+  flex: 1;
+}
+
+.alert-warning-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.alert-warning-param {
+  margin: 0 0 6px;
+  color: #111827;
+}
+
+.alert-warning-meta {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.alert-warning-tag {
+  margin-left: auto;
+  align-self: center;
+  font-weight: 600;
+}

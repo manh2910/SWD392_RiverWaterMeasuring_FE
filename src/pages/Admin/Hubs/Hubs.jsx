@@ -21,6 +21,7 @@ import {
   DeleteOutlined,
   KeyOutlined,
   EyeOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 
 import {
@@ -30,16 +31,20 @@ import {
   deleteHub,
   regenerateSecretKey,
 } from "../../../api/hubApi";
+import { createHub, getStations } from "../../../api/stationApi";
 
 import "./Hubs.css";
 
 export default function Hubs() {
 
   const [hubs, setHubs] = useState([]);
+  const [stations, setStations] = useState([]);
   const [selectedHub, setSelectedHub] = useState(null);
   const [openEdit, setOpenEdit] = useState(false);
+  const [openCreate, setOpenCreate] = useState(false);
 
   const [form] = Form.useForm();
+  const [createForm] = Form.useForm();
 
   // ================= FETCH HUBS =================
 
@@ -59,7 +64,18 @@ export default function Hubs() {
 
   useEffect(() => {
     fetchHubs();
+    fetchStations();
   }, []);
+
+  const fetchStations = async () => {
+    try {
+      const res = await getStations();
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setStations(list);
+    } catch {
+      message.error("Failed to load stations");
+    }
+  };
 
   // ================= HUB DETAIL =================
 
@@ -97,6 +113,41 @@ export default function Hubs() {
     form.setFieldsValue(hub);
 
     setOpenEdit(true);
+  };
+
+  // ================= CREATE HUB =================
+
+  const handleOpenCreate = () => {
+    createForm.resetFields();
+    createForm.setFieldsValue({
+      protocol: "MQTT",
+      status: "ACTIVE",
+    });
+    setOpenCreate(true);
+  };
+
+  const submitCreate = async () => {
+    try {
+      const values = await createForm.validateFields();
+      const stationId = Number(values.stationId);
+      const payload = {
+        hubId: 0,
+        hubCode: String(values.hubCode || "").trim(),
+        protocol: values.protocol,
+        status: values.status,
+        stationId,
+        secretKey: "",
+        sensors: [],
+      };
+
+      await createHub(stationId, payload);
+      message.success("Hub created");
+      setOpenCreate(false);
+      createForm.resetFields();
+      fetchHubs();
+    } catch {
+      message.error("Create hub failed");
+    }
   };
 
   const submitEdit = async () => {
@@ -246,7 +297,14 @@ export default function Hubs() {
 
       {/* ===== HUB TABLE ===== */}
 
-      <Card title="Hub Management">
+      <Card
+        title="Hub Management"
+        extra={
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
+            Add Hub
+          </Button>
+        }
+      >
 
         <Table
           rowKey="hubId"
@@ -296,6 +354,66 @@ export default function Hubs() {
 
         </Form>
 
+      </Modal>
+
+      {/* ===== CREATE MODAL ===== */}
+      <Modal
+        open={openCreate}
+        title="Add Hub"
+        onOk={submitCreate}
+        onCancel={() => setOpenCreate(false)}
+      >
+        <Form layout="vertical" form={createForm}>
+          <Form.Item
+            name="stationId"
+            label="Station"
+            rules={[{ required: true, message: "Please select station" }]}
+          >
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={stations.map((s) => ({
+                value: s.stationId,
+                label: s.stationName || `Station ${s.stationId}`,
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="hubCode"
+            label="Hub Code"
+            rules={[{ required: true, message: "Please enter hub code" }]}
+          >
+            <Input placeholder="Ex: HUB_ST_12" />
+          </Form.Item>
+
+          <Form.Item
+            name="protocol"
+            label="Protocol"
+            rules={[{ required: true, message: "Please select protocol" }]}
+          >
+            <Select
+              options={[
+                { label: "MQTT", value: "MQTT" },
+                { label: "HTTP", value: "HTTP" },
+                { label: "LoRa", value: "LORA" },
+              ]}
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="status"
+            label="Status"
+            rules={[{ required: true, message: "Please select status" }]}
+          >
+            <Select
+              options={[
+                { label: "Active", value: "ACTIVE" },
+                { label: "Inactive", value: "INACTIVE" },
+              ]}
+            />
+          </Form.Item>
+        </Form>
       </Modal>
 
     </div>

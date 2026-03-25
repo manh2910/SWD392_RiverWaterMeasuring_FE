@@ -11,10 +11,22 @@ const authHeaders = () => {
 };
 
 export const getAlertHistory = async () => {
-  const res = await axios.get(BASE_URL, {
-    headers: authHeaders(),
-  });
-  return res.data;
+  try {
+    const res = await axios.get(BASE_URL, {
+      headers: authHeaders(),
+    });
+    return res.data;
+  } catch (err) {
+    const status = err?.response?.status;
+    // Một số tài khoản user không được quyền /alerts, fallback về endpoint dashboard
+    if (status === 401 || status === 403 || status === 404) {
+      const fallback = await axios.get(`${BASE_URL}/dashboard`, {
+        headers: authHeaders(),
+      });
+      return fallback.data;
+    }
+    throw err;
+  }
 };
 
 export const resolveAlert = async (alertId) => {

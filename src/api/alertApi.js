@@ -61,5 +61,30 @@ export const sendAlert = async (data) => {
   return res.data;
 };
 
+export const getLatestAlerts = async () => {
+  try {
+    const res = await axios.get(`${ALERT_BASE}/latest`, {
+      headers: authHeaders(),
+    });
+    return res.data;
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status === 401 || status === 403 || status === 404) {
+      try {
+        const dashboardRes = await axios.get(`${ALERT_BASE}/dashboard`, {
+          headers: authHeaders(),
+        });
+        return dashboardRes.data;
+      } catch {
+        const allRes = await axios.get(`${ALERT_BASE}`, {
+          headers: authHeaders(),
+        });
+        return allRes.data;
+      }
+    }
+    throw err;
+  }
+};
+
 /* BACKWARD COMPATIBLE */
 export const getAlerts = getMyAlertSettings;

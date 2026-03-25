@@ -21,7 +21,6 @@ import {
   EditOutlined,
   DeleteOutlined,
   ApartmentOutlined,
-  ApiOutlined,
 } from "@ant-design/icons";
 
 import {
@@ -29,7 +28,6 @@ import {
   createStation,
   updateStation,
   deleteStation,
-  createHub,
 } from "../../../api/stationApi";
 
 export default function Stations() {
@@ -38,13 +36,9 @@ export default function Stations() {
   const [loading, setLoading] = useState(false);
 
   const [open, setOpen] = useState(false);
-  const [hubOpen, setHubOpen] = useState(false);
-
   const [editing, setEditing] = useState(null);
-  const [selectedStation, setSelectedStation] = useState(null);
 
   const [form] = Form.useForm();
-  const [hubForm] = Form.useForm();
 
   // ================= FETCH =================
 
@@ -69,6 +63,7 @@ export default function Stations() {
         return {
           id: s.stationId,
           key: s.stationId,
+          stationCode: s.stationCode || "",
           name: s.stationName,
           lat: s.latitude,
           lng: s.longitude,
@@ -79,7 +74,8 @@ export default function Stations() {
 
       console.log("FORMATTED DATA:", formatted);
 
-      setData(formatted);
+      // Chỉ hiển thị các trạm đang active trên giao diện
+      setData(formatted.filter((s) => s.status === "active"));
 
     } catch (err) {
 
@@ -109,6 +105,7 @@ export default function Stations() {
     if (record) {
 
       form.setFieldsValue({
+        stationCode: record.stationCode,
         name: record.name,
         lat: record.lat,
         lng: record.lng,
@@ -136,7 +133,7 @@ export default function Stations() {
       const payload = {
 
         stationId: editing ? editing.id : 0,
-        stationCode: "",
+        stationCode: String(values.stationCode || editing?.stationCode || "").trim(),
         stationName: values.name,
         latitude: Number(values.lat),
         longitude: Number(values.lng),
@@ -213,54 +210,6 @@ export default function Stations() {
     });
   };
 
-  // ================= HUB =================
-
-  const openHubModal = (station) => {
-
-    console.log("OPEN HUB MODAL:", station);
-
-    setSelectedStation(station);
-    setHubOpen(true);
-
-  };
-
-  const handleCreateHub = async () => {
-
-    try {
-
-      const values = await hubForm.validateFields();
-
-      console.log("HUB FORM VALUES:", values);
-
-      const payload = {
-
-        hubId: 0,
-        hubCode: values.hubCode,
-        protocol: values.protocol,
-        status: "ACTIVE",
-        stationId: selectedStation.id,
-        secretKey: "",
-        sensors: []
-
-      };
-
-      console.log("HUB PAYLOAD:", payload);
-
-      await createHub(selectedStation.id, payload);
-
-      message.success("Hub created");
-
-      setHubOpen(false);
-      hubForm.resetFields();
-
-    } catch (err) {
-
-      console.error("CREATE HUB ERROR:", err);
-      message.error("Create hub failed");
-
-    }
-  };
-
   // ================= TABLE =================
 
   const columns = [
@@ -302,7 +251,7 @@ export default function Stations() {
 
     {
       title: "Actions",
-      width: 220,
+      width: 140,
       render: (_, record) => (
 
         <Space>
@@ -317,14 +266,6 @@ export default function Stations() {
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record)}
           />
-
-          <Button
-            type="primary"
-            icon={<ApiOutlined />}
-            onClick={() => openHubModal(record)}
-          >
-            Hub
-          </Button>
 
         </Space>
 
@@ -411,6 +352,16 @@ export default function Stations() {
       >
 
         <Form layout="vertical" form={form}>
+          <Form.Item
+            name="stationCode"
+            label="Station Code"
+            rules={[
+              { required: true, message: "Please enter station code" },
+              { min: 2, message: "Station code must be at least 2 characters" },
+            ]}
+          >
+            <Input placeholder="Ex: ST002" />
+          </Form.Item>
 
           <Form.Item
             name="name"
@@ -437,48 +388,6 @@ export default function Stations() {
               options={[
                 { label: "Active", value: "active" },
                 { label: "Offline", value: "offline" },
-              ]}
-            />
-          </Form.Item>
-
-        </Form>
-
-      </Modal>
-
-      {/* ===== CREATE HUB ===== */}
-
-      <Modal
-        open={hubOpen}
-        title={`Create Hub for ${selectedStation?.name}`}
-        onOk={handleCreateHub}
-        onCancel={() => {
-
-          setHubOpen(false);
-          hubForm.resetFields();
-
-        }}
-      >
-
-        <Form layout="vertical" form={hubForm}>
-
-          <Form.Item
-            name="hubCode"
-            label="Hub Code"
-            rules={[{ required: true }]}
-          >
-            <Input />
-          </Form.Item>
-
-          <Form.Item
-            name="protocol"
-            label="Protocol"
-            rules={[{ required: true }]}
-          >
-            <Select
-              options={[
-                { label: "MQTT", value: "MQTT" },
-                { label: "HTTP", value: "HTTP" },
-                { label: "LoRa", value: "LORA" },
               ]}
             />
           </Form.Item>
