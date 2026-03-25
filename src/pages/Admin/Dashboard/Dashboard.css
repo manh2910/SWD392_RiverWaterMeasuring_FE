@@ -98,6 +98,40 @@
   font-size: 16px;
 }
 
+/* ===== CHART LOADING ===== */
+.dashboard-chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+}
+
+/* ===== ALERT LIST ROW ===== */
+.dashboard-alert-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.dashboard-alert-msg {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.dashboard-alert-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .table-card .anticon {
   font-size: 16px;
 }

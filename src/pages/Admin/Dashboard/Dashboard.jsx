@@ -1,323 +1,412 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   Card,
   Row,
   Col,
-  Table,
   Tag,
   Statistic,
-  Button,
+  Select,
+  Spin,
+  Empty,
+  List,
+  Badge,
+  Typography,
   Space,
   message,
 } from "antd";
-
 import {
-  DatabaseOutlined,
-  RadarChartOutlined,
   AlertOutlined,
-  SendOutlined,
+  EnvironmentOutlined,
+  ClockCircleOutlined,
+  RadarChartOutlined,
 } from "@ant-design/icons";
 
-import { Line } from "@ant-design/plots";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid,
+  ResponsiveContainer,
+} from "recharts";
 
-import { getRiverStatus } from "../../../api/observationApi";
-import { sendAlert as sendAlertAPI } from "../../../api/alertApi";
 import AdminMap from "../../../components/Admin/AdminMap/AdminMap";
+import { getRivers } from "../../../api/riverApi";
+import { getStations } from "../../../api/stationApi";
+import { getObservationsPage } from "../../../api/observationApi";
+import { getAlertHistory } from "../../../api/alertHistoryApi";
 
 import "./Dashboard.css";
 
-/* ================= THRESHOLD ================= */
+const { Text } = Typography;
 
-const THRESHOLDS = {
-  PH: { min: 6.5, max: 8.5 },
-  DO: { min: 5 },
-  COND: { max: 1000 },
-  WL: { max: 3 },
-  FV: { max: 3.5 },
+const PARAM_COLORS = {
+  PH:   "#1890ff",
+  DO:   "#52c41a",
+  COND: "#fa8c16",
+  WL:   "#722ed1",
+  FV:   "#eb2f96",
 };
 
-/* ================= SEVERITY ================= */
-
-const getSeverity = (code, value) => {
-  const t = THRESHOLDS[code];
-  if (!t || value === undefined) return "low";
-
-  if (t.min && value < t.min * 0.8) return "critical";
-  if (t.min && value < t.min) return "high";
-
-  if (t.max && value > t.max * 1.3) return "critical";
-  if (t.max && value > t.max) return "high";
-
-  return "low";
+const SEVERITY_COLOR = {
+  LOW:      "green",
+  MEDIUM:   "gold",
+  HIGH:     "orange",
+  CRITICAL: "red",
 };
+
+/* Flatten paged or plain-array response */
+function extractList(res) {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res.content)) return res.content;
+  if (Array.isArray(res.data)) return res.data;
+  return [];
+}
+
+/* Build recharts-friendly rows from getObservationsPage items.
+   Each item: { observedAt, parameterCode, value }
+   Output: [{ time: "HH:mm", PH: 7.2, DO: 6.1, … }, …] */
+function buildChartRows(observations) {
+  const byTime = {};
+  observations.forEach((o) => {
+    const code = o.parameterCode ?? o.parameter;
+    const val  = Number(o.value ?? o.averageValue);
+    // observedAt is the field used by Observations page
+    const raw  = o.observedAt ?? o.observationTime ?? o.time ?? o.timestamp ?? "";
+    const time = String(raw).slice(0, 16).replace("T", " ");
+    if (!code || !time || !Number.isFinite(val)) return;
+    if (!byTime[time]) byTime[time] = { time };
+    byTime[time][code] = val;
+  });
+  return Object.values(byTime).sort((a, b) => (a.time > b.time ? 1 : -1));
+}
 
 export default function Dashboard() {
-  const [statusData, setStatusData] = useState([]);
-  const [tableData, setTableData] = useState([]);
-  const [overallSeverity, setOverallSeverity] = useState("low");
+  /* ─── rivers & stations ─── */
+  const [rivers, setRivers]         = useState([]);
+  const [stations, setStations]     = useState([]);
+  const [selectedRiverId, setSelectedRiverId] = useState(null);
+  const [selectedStationId, setSelectedStationId] = useState(null);
 
+  /* ─── observation chart ─── */
+  const [obsLoading, setObsLoading] = useState(false);
+  const [obsData, setObsData]       = useState([]);
+  const [paramCodes, setParamCodes] = useState([]);
+
+  /* ─── alert history ─── */
+  const [alerts, setAlerts]         = useState([]);
+  const [alertLoading, setAlertLoading] = useState(false);
+
+  /* ─── stats ─── */
+  const [totalStations, setTotalStations] = useState(0);
+
+  /* ════════ Init: load rivers + stations + alerts ════════ */
   useEffect(() => {
-    fetchRiverStatus();
+    async function init() {
+      try {
+        const [riverRes, stationRes] = await Promise.all([
+          getRivers().catch(() => []),
+          getStations().catch(() => []),
+        ]);
+        const riverList   = extractList(riverRes);
+        const stationList = extractList(stationRes);
+        setRivers(riverList);
+        setStations(stationList);
+        setTotalStations(stationList.length);
+        if (riverList.length > 0) {
+          const firstId = riverList[0].riverId ?? riverList[0].id;
+          setSelectedRiverId(firstId);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    init();
+    fetchAlerts();
   }, []);
 
-  /* ================= FETCH ================= */
-
-  const fetchRiverStatus = async () => {
-    try {
-      const data = await getRiverStatus(1);
-
-      if (!Array.isArray(data)) return;
-
-      setStatusData(data);
-
-      let highest = "low";
-      const map = {};
-
-      data.forEach((p) => {
-        const value = Number(p.averageValue) || 0;
-
-        const severity = getSeverity(p.parameterCode, value);
-
-        if (severity === "critical") highest = "critical";
-        else if (severity === "high" && highest !== "critical")
-          highest = "high";
-
-        map[p.parameterCode] = {
-          value,
-          unit: p.unit,
-          severity,
-        };
-      });
-
-      const row = {
-        key: 1,
-        cond: map.COND,
-        oxy: map.DO,
-        flow: map.FV,
-        ph: map.PH,
-        water: map.WL,
-        severity: highest,
-      };
-
-      setTableData([row]);
-      setOverallSeverity(highest);
-    } catch (err) {
-      console.log(err);
-      message.error("Load river status failed");
-    }
-  };
-
-  /* ================= VALUE RENDER ================= */
-
-  const renderValue = (obj) => {
-    if (!obj) return "-";
-
-    const colors = {
-      critical: "#ff4d4f",
-      high: "#faad14",
-      low: "#52c41a",
-    };
-
-    return (
-      <span style={{ color: colors[obj.severity], fontWeight: 500 }}>
-        {obj.value !== undefined ? Number(obj.value).toFixed(2) : "-"} {obj.unit}
-      </span>
+  /* Auto-select first station when river changes */
+  useEffect(() => {
+    if (selectedRiverId == null) return;
+    const filtered = stations.filter(
+      (s) => Number(s.riverId ?? s.riverID) === Number(selectedRiverId)
     );
-  };
+    const firstId = filtered[0]?.stationId ?? filtered[0]?.id ?? null;
+    setSelectedStationId(firstId ?? null);
+  }, [selectedRiverId, stations]);
 
-  /* ================= ALERT ================= */
+  /* Fetch observations when station changes */
+  useEffect(() => {
+    if (selectedStationId == null) {
+      setObsData([]);
+      setParamCodes([]);
+      return;
+    }
+    fetchObservations(selectedStationId);
+  }, [selectedStationId]);
 
-  const sendAlert = async () => {
+  /* ════════ Fetch helpers ════════ */
+  const fetchObservations = async (stationId) => {
+    setObsLoading(true);
     try {
-      const payload = {
-        alertId: 0,
-        message: `River monitoring alert: ${overallSeverity.toUpperCase()} severity detected`,
-      };
-
-      await sendAlertAPI(payload);
-
-      message.success("Alert sent successfully");
+      // Fetch all available observations for the station, sorted oldest→newest for chart
+      const res = await getObservationsPage({
+        stationId,
+        size: 500,
+        sort: "observedAt,asc",
+      });
+      const list  = res?.content ?? (Array.isArray(res) ? res : []);
+      const rows  = buildChartRows(list);
+      const codes = [...new Set(list.map((o) => o.parameterCode ?? o.parameter).filter(Boolean))];
+      setObsData(rows);
+      setParamCodes(codes);
     } catch (err) {
-      console.log(err);
-      message.error("Send alert failed");
+      console.error(err);
+      message.error("Could not load observation data");
+    } finally {
+      setObsLoading(false);
     }
   };
 
-  /* ================= TABLE ================= */
-
-  const columns = [
-    {
-      title: "Conductivity",
-      render: (_, r) => renderValue(r.cond),
-    },
-    {
-      title: "Dissolved Oxygen",
-      render: (_, r) => renderValue(r.oxy),
-    },
-    {
-      title: "Flow Velocity",
-      render: (_, r) => renderValue(r.flow),
-    },
-    {
-      title: "pH",
-      render: (_, r) => renderValue(r.ph),
-    },
-    {
-      title: "Water Level",
-      render: (_, r) => renderValue(r.water),
-    },
-    {
-      title: "Severity",
-      dataIndex: "severity",
-      render: (s) => {
-        const colors = {
-          critical: "red",
-          high: "orange",
-          low: "green",
-        };
-
-        return <Tag color={colors[s]}>{s?.toUpperCase()}</Tag>;
-      },
-    },
-    {
-      title: "Action",
-      render: (_, r) =>
-        r.severity === "high" || r.severity === "critical" ? (
-          <Button danger icon={<SendOutlined />} onClick={sendAlert}>
-            Alert
-          </Button>
-        ) : null,
-    },
-  ];
-
-  /* ================= CHART DATA ================= */
-
-  const chartData = statusData
-    .map((p) => ({
-      parameter: p.parameterName || p.parameterCode,
-      value: Number(p.averageValue) || 0,
-    }))
-    .filter((d) => d.parameter);
-
-  /* ================= CHART CONFIG ================= */
-
-  const chartConfig = {
-    data: chartData,
-    xField: "parameter",
-    yField: "value",
-    height: 400,
-    smooth: true,
-    color: "#6b7280",
-    point: {
-      size: 6,
-      shape: "circle",
-    },
-    lineStyle: {
-      lineWidth: 3,
-    },
-    label: {
-      formatter: (d) => {
-        if (!d || d.value === undefined) return "";
-        return Number(d.value).toFixed(2);
-      },
-    },
-    tooltip: {
-      formatter: (d) => ({
-        name: d.parameter,
-        value: Number(d.value).toFixed(2),
-      }),
-    },
+  const fetchAlerts = async () => {
+    setAlertLoading(true);
+    try {
+      const res = await getAlertHistory();
+      const list = extractList(res);
+      setAlerts(list.slice(0, 20));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAlertLoading(false);
+    }
   };
 
+  /* ════════ Derived data ════════ */
+  const filteredStations = useMemo(
+    () =>
+      selectedRiverId == null
+        ? stations
+        : stations.filter(
+            (s) => Number(s.riverId ?? s.riverID) === Number(selectedRiverId)
+          ),
+    [stations, selectedRiverId]
+  );
+
+  const riverOptions = useMemo(
+    () =>
+      rivers.map((r) => ({
+        value: r.riverId ?? r.id,
+        label: r.riverName ?? r.name ?? `River #${r.riverId ?? r.id}`,
+      })),
+    [rivers]
+  );
+
+  const stationOptions = useMemo(
+    () =>
+      filteredStations.map((s) => ({
+        value: s.stationId ?? s.id,
+        label: s.stationName ?? s.name ?? `Station #${s.stationId ?? s.id}`,
+      })),
+    [filteredStations]
+  );
+
+  const unresolvedAlerts = alerts.filter((a) => !a.resolved && !a.isResolved).length;
+
+  /* ════════ RENDER ════════ */
   return (
     <div className="dashboard">
-      {/* HEADER */}
 
+      {/* ── HEADER ── */}
       <div className="dashboard-header">
         <div>
-          <h1>Water Monitoring Dashboard</h1>
-          <p>Real-time river monitoring</p>
+          <h1 className="title">Water Monitoring Dashboard</h1>
+          <p className="subtitle">Real-time river &amp; station monitoring</p>
         </div>
-
-        <Space>
-          <Button type="primary">Export</Button>
-        </Space>
       </div>
 
-      {/* STATS */}
-
-      <Row gutter={16} style={{ marginTop: 20 }}>
-        <Col span={6}>
-          <Card>
+      {/* ── STAT CARDS ── */}
+      <Row gutter={16} className="stats-row">
+        <Col xs={12} sm={8} md={6}>
+          <Card className="stat-card">
             <Statistic
-              title="Parameters"
-              value={statusData.length}
-              prefix={<DatabaseOutlined />}
+              title="Total Stations"
+              value={totalStations}
+              prefix={<EnvironmentOutlined />}
             />
           </Card>
         </Col>
-
-        <Col span={6}>
-          <Card>
-            <Statistic title="Sensors" value={5} prefix={<RadarChartOutlined />} />
+        <Col xs={12} sm={8} md={6}>
+          <Card className="stat-card">
+            <Statistic
+              title="Rivers"
+              value={rivers.length}
+              prefix={<RadarChartOutlined />}
+            />
           </Card>
         </Col>
-
-        <Col span={6}>
-          <Card>
+        <Col xs={12} sm={8} md={6}>
+          <Card className="stat-card">
             <Statistic
-              title="Alerts"
-              value={
-                statusData.filter(
-                  (p) =>
-                    getSeverity(p.parameterCode, p.averageValue) !== "low"
-                ).length
-              }
+              title="Unresolved Alerts"
+              value={unresolvedAlerts}
               prefix={<AlertOutlined />}
+              valueStyle={{ color: unresolvedAlerts > 0 ? "#ff4d4f" : "#52c41a" }}
             />
           </Card>
         </Col>
-
-        <Col span={6}>
-          <Card>
+        <Col xs={12} sm={8} md={6}>
+          <Card className="stat-card">
             <Statistic
-              title="Severity"
-              value={overallSeverity.toUpperCase()}
-              valueStyle={{
-                color:
-                  overallSeverity === "critical"
-                    ? "#ff4d4f"
-                    : overallSeverity === "high"
-                    ? "#faad14"
-                    : "#52c41a",
-              }}
+              title="Observation Data Points"
+              value={obsData.length * (paramCodes.length || 1)}
+              prefix={<ClockCircleOutlined />}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* TABLE */}
-
-      <Card title="Current River Status" style={{ marginTop: 30 }}>
-        <Table
-          columns={columns}
-          dataSource={tableData}
-          pagination={false}
-          rowKey="key"
-        />
-      </Card>
-
-      {/* CHART */}
-
-      <Card title="River Sensor Monitoring" style={{ marginTop: 30 }}>
-        {chartData.length > 0 ? <Line {...chartConfig} /> : <p>No chart data</p>}
-      </Card>
-
-      {/* MAP */}
-
-      <Card title="River Station Map" style={{ marginTop: 30 }}>
+      {/* ── MAP ── */}
+      <Card title="River Station Map" style={{ marginTop: 24 }}>
         <AdminMap />
       </Card>
+
+      {/* ── OBSERVATION CHART ── */}
+      <Card
+        title="Station Observations Chart"
+        style={{ marginTop: 24 }}
+        extra={
+          <Space wrap>
+            <Select
+              placeholder="Select river"
+              value={selectedRiverId}
+              onChange={(v) => setSelectedRiverId(v)}
+              options={riverOptions}
+              style={{ minWidth: 160 }}
+              showSearch
+              filterOption={(inp, opt) =>
+                String(opt?.label ?? "").toLowerCase().includes(inp.toLowerCase())
+              }
+            />
+            <Select
+              placeholder="Select station"
+              value={selectedStationId}
+              onChange={(v) => setSelectedStationId(v)}
+              options={stationOptions}
+              style={{ minWidth: 200 }}
+              disabled={filteredStations.length === 0}
+              showSearch
+              filterOption={(inp, opt) =>
+                String(opt?.label ?? "").toLowerCase().includes(inp.toLowerCase())
+              }
+            />
+          </Space>
+        }
+      >
+        {obsLoading ? (
+          <div className="dashboard-chart-loading">
+            <Spin tip="Loading observations..." />
+          </div>
+        ) : obsData.length === 0 ? (
+          <Empty description="No observation data for this station" />
+        ) : (
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={obsData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
+              <XAxis
+                dataKey="time"
+                tick={{ fontSize: 11 }}
+                tickFormatter={(v) => String(v).slice(11, 16)}
+                minTickGap={40}
+              />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip
+                formatter={(val, name) => [Number(val).toFixed(3), name]}
+                labelFormatter={(l) => `Time: ${l}`}
+              />
+              <Legend />
+              {paramCodes.map((code) => (
+                <Line
+                  key={code}
+                  type="monotone"
+                  dataKey={code}
+                  stroke={PARAM_COLORS[code] ?? "#8884d8"}
+                  dot={obsData.length <= 50 ? { r: 3 } : false}
+                  strokeWidth={2}
+                  connectNulls
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
+
+      {/* ── ALERT HISTORY ── */}
+      <Card
+        title={
+          <Space>
+            Alert History
+            {unresolvedAlerts > 0 && (
+              <Badge count={unresolvedAlerts} style={{ backgroundColor: "#ff4d4f" }} />
+            )}
+          </Space>
+        }
+        style={{ marginTop: 24, marginBottom: 32 }}
+      >
+        {alertLoading ? (
+          <div className="dashboard-chart-loading">
+            <Spin tip="Loading alerts..." />
+          </div>
+        ) : alerts.length === 0 ? (
+          <Empty description="No alerts found" />
+        ) : (
+          <List
+            dataSource={alerts}
+            size="small"
+            renderItem={(alert) => {
+              const severity = String(
+                alert.severity ?? alert.alertSeverity ?? "LOW"
+              ).toUpperCase();
+              const resolved = alert.resolved ?? alert.isResolved ?? false;
+              const time = String(
+                alert.triggeredAt ?? alert.createdAt ?? alert.alertTime ?? ""
+              ).replace("T", " ").slice(0, 19);
+              return (
+                <List.Item>
+                  <div className="dashboard-alert-row">
+                    <Tag color={SEVERITY_COLOR[severity] ?? "default"}>
+                      {severity}
+                    </Tag>
+                    <div className="dashboard-alert-msg">
+                      <Text strong style={{ fontSize: 13 }}>
+                        {alert.message ?? alert.alertMessage ?? "—"}
+                      </Text>
+                      {alert.stationName && (
+                        <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                          <EnvironmentOutlined /> {alert.stationName}
+                        </Text>
+                      )}
+                    </div>
+                    <div className="dashboard-alert-meta">
+                      {time && (
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          <ClockCircleOutlined /> {time}
+                        </Text>
+                      )}
+                      <Tag color={resolved ? "green" : "volcano"}>
+                        {resolved ? "Resolved" : "Active"}
+                      </Tag>
+                    </div>
+                  </div>
+                </List.Item>
+              );
+            }}
+          />
+        )}
+      </Card>
+
     </div>
   );
 }
