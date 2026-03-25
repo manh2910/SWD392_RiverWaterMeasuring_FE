@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Layout, Button, Tag, Input, Empty, Spin, message } from "antd";
+import { Layout, Button, Tag, Input, Empty, Spin, Select, message } from "antd";
 import { ArrowLeftOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -19,6 +19,7 @@ import "./RiverMap.css";
 import { useNavigate } from "react-router-dom";
 import { getRivers, getRiverDetail } from "../../../api/riverApi";
 import { getStations, getStationsMap } from "../../../api/stationApi";
+import { getLatestObservations, getObservationHistory } from "../../../api/observationApi";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -199,6 +200,21 @@ function getParam(statusList, code) {
   return v != null ? Number(v) : 0;
 }
 
+const toArray = (payload) =>
+  Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.content)
+      ? payload.content
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+const normalizeObservation = (row) => ({
+  parameterCode: String(row?.parameterCode || row?.code || "").toUpperCase(),
+  value: Number(row?.value ?? row?.averageValue ?? row?.latestValue ?? NaN),
+  observedAt: row?.observedAt || row?.timestamp || row?.createdAt || row?.time || null,
+});
+
 function RiverMap() {
   const navigate = useNavigate();
   const [riversData, setRiversData] = useState([]);
@@ -209,6 +225,10 @@ function RiverMap() {
   const [selectedId, setSelectedId] = useState(null);
   const [search, setSearch] = useState("");
   const [mapStations, setMapStations] = useState([]);
+  const [selectedRiverFilterId, setSelectedRiverFilterId] = useState(null);
+  const [selectedStationId, setSelectedStationId] = useState(null);
+  const [stationLatestByCode, setStationLatestByCode] = useState({});
+  const [stationHistoryRows, setStationHistoryRows] = useState([]);
 
   const majorRivers = useMemo(
     () => riversData.filter((r) => r.type === "major"),
@@ -344,11 +364,49 @@ function RiverMap() {
     );
   }, [activeFilter, search, riversData, majorRivers, branchesData]);
 
+  const stationWithResolvedRiver = useMemo(() => {
+    return mapStations.map((s) => {
+      const rid = s?.riverId ?? s?.riverID;
+      if (rid != null && Number.isFinite(Number(rid))) {
+        return { ...s, _resolvedRiverId: Number(rid) };
+      }
+      const byName = riversData.find((r) => {
+        const rn = normalizeRiverLabel(r.name);
+        const sn = normalizeRiverLabel(s.riverName);
+        return rn && sn && (rn === sn || rn.includes(sn) || sn.includes(rn));
+      });
+      return { ...s, _resolvedRiverId: byName?.id ?? null };
+    });
+  }, [mapStations, riversData]);
+
+  const selectedStation = useMemo(
+    () =>
+      stationWithResolvedRiver.find((s) => Number(s.stationId) === Number(selectedStationId)) ?? null,
+    [stationWithResolvedRiver, selectedStationId]
+  );
+
+  const focusedRiverId = selectedStation?._resolvedRiverId ?? selectedRiverFilterId ?? null;
+
+  const focusedRivers = useMemo(() => {
+    if (focusedRiverId == null) return displayedRivers;
+    return displayedRivers.filter((r) => Number(r.id) === Number(focusedRiverId));
+  }, [displayedRivers, focusedRiverId]);
+
+  const focusedStations = useMemo(() => {
+    if (selectedStationId != null) {
+      return stationWithResolvedRiver.filter((s) => Number(s.stationId) === Number(selectedStationId));
+    }
+    if (focusedRiverId != null) {
+      return stationWithResolvedRiver.filter((s) => Number(s._resolvedRiverId) === Number(focusedRiverId));
+    }
+    return [];
+  }, [stationWithResolvedRiver, focusedRiverId, selectedStationId]);
+
   const effectiveSelectedId = useMemo(() => {
-    if (selectedId != null && displayedRivers.some((r) => r.id === selectedId))
+    if (selectedId != null && focusedRivers.some((r) => r.id === selectedId))
       return selectedId;
-    return displayedRivers[0]?.id ?? null;
-  }, [displayedRivers, selectedId]);
+    return focusedRivers[0]?.id ?? null;
+  }, [focusedRivers, selectedId]);
 
   /** Sông đã có trạm trên map (theo riverId hoặc tên sông khớp với trạm — tránh lệch id giữa API) */
   const riverIdsWithMapStations = useMemo(() => {
@@ -367,23 +425,6 @@ function RiverMap() {
     return set;
   }, [mapStations, riversData]);
 
-  const selectedMajorId = useMemo(() => {
-    const r = riversData.find((x) => x.id === effectiveSelectedId);
-    if (!r) return null;
-    return r.type === "major" ? r.id : r.parentId;
-  }, [effectiveSelectedId, riversData]);
-
-  const relatedBranches = useMemo(() => {
-    if (selectedMajorId == null) return [];
-    return branchesData.filter((b) => b.parentId === selectedMajorId);
-  }, [selectedMajorId, branchesData]);
-
-  const selectedMajorName = useMemo(() => {
-    if (selectedMajorId == null) return "";
-    const m = majorRivers.find((x) => x.id === selectedMajorId);
-    return m?.name ?? "";
-  }, [selectedMajorId, majorRivers]);
-
   const selectedRiver = useMemo(() => {
     const r = riversData.find((r) => r.id === effectiveSelectedId);
     if (!r) return null;
@@ -398,7 +439,75 @@ function RiverMap() {
     };
   }, [riversData, effectiveSelectedId, selectedDetail]);
 
+  const selectedStationMetrics = useMemo(() => {
+    if (!selectedStation) return null;
+    const latestFromMap =
+      selectedStation.latestValues && typeof selectedStation.latestValues === "object"
+        ? selectedStation.latestValues
+        : {};
+    const wlFromObs = stationLatestByCode.WL?.value;
+    const wl = Number.isFinite(wlFromObs) ? wlFromObs : effectiveWaterLevel(selectedStation);
+    const tempFromObs = stationLatestByCode.TEMP?.value ?? stationLatestByCode.T?.value;
+    const phFromObs = stationLatestByCode.PH?.value;
+    const turbFromObs =
+      stationLatestByCode.COND?.value ??
+      stationLatestByCode.TURB?.value ??
+      stationLatestByCode.TURBIDITY?.value;
+    const flowFromObs =
+      stationLatestByCode.FV?.value ??
+      stationLatestByCode.FLOW?.value ??
+      stationLatestByCode.Q?.value;
+    const latestObservedAt = Object.values(stationLatestByCode)
+      .map((x) => x?.observedAt)
+      .find(Boolean);
+    return {
+      title: selectedStation.stationName || `Trạm ${selectedStation.stationId}`,
+      subtitle: selectedStation.riverName || "—",
+      riverName: selectedStation.riverName || "",
+      level: Number.isFinite(wl) ? wl : 0,
+      ph: Number(phFromObs ?? latestFromMap.PH ?? 0),
+      doValue: Number(stationLatestByCode.DO?.value ?? latestFromMap.DO ?? 0),
+      cond: Number(turbFromObs ?? latestFromMap.COND ?? 0),
+      fv: Number(flowFromObs ?? latestFromMap.FV ?? 0),
+      updatedAt: latestObservedAt
+        ? String(latestObservedAt).replace("T", " ").slice(0, 19)
+        : selectedStation.lastUpdatedAt
+          ? String(selectedStation.lastUpdatedAt).replace("T", " ").slice(0, 19)
+          : null,
+    };
+  }, [selectedStation, stationLatestByCode]);
+
+  const detailTarget = useMemo(() => {
+    if (selectedStationMetrics) return selectedStationMetrics;
+    if (!selectedRiver) return null;
+    return {
+      title: selectedRiver.name,
+      subtitle: selectedRiver.region || selectedRiver.country || "-",
+      riverName: selectedRiver.name,
+      level: Number(selectedRiver.level ?? 0),
+      ph: Number(selectedRiver.ph ?? 0),
+      doValue: Number(selectedRiver.doValue ?? 0),
+      cond: Number(selectedRiver.turbidity ?? 0),
+      fv: Number(selectedRiver.flow ?? 0),
+      updatedAt: null,
+    };
+  }, [selectedStationMetrics, selectedRiver]);
+
   const chartData = useMemo(() => {
+    if (selectedStationId && stationHistoryRows.length > 0) {
+      const wlRows = stationHistoryRows
+        .filter((row) => row.parameterCode === "WL" && Number.isFinite(row.value))
+        .slice(0, 12)
+        .reverse();
+
+      if (wlRows.length > 0) {
+        return wlRows.map((row, idx) => ({
+          hour: row.observedAt ? String(row.observedAt).slice(11, 16) : `${idx}h`,
+          level: Number(Number(row.value).toFixed(2)),
+        }));
+      }
+    }
+
     const history = selectedDetail?.waterLevelHistory ?? [];
     if (history.length > 0) {
       return history.slice(-12).map((h, i) => ({
@@ -406,12 +515,12 @@ function RiverMap() {
         level: Number(Number(h.value ?? h.averageValue ?? 0).toFixed(2)),
       }));
     }
-    const base = selectedRiver?.level ?? 0;
+    const base = detailTarget?.level ?? 0;
     return Array.from({ length: 12 }, (_, i) => ({
       hour: `${i}h`,
       level: Number(Math.max(0, Math.min(3.5, base)).toFixed(2)),
     }));
-  }, [selectedDetail, selectedRiver?.level]);
+  }, [selectedStationId, stationHistoryRows, selectedDetail, detailTarget?.level]);
 
   const updatedAt = useMemo(() => {
     const d = new Date();
@@ -423,11 +532,11 @@ function RiverMap() {
 
   const levelPercent = Math.max(
     0,
-    Math.min(100, ((selectedRiver?.level ?? 0) / 3.5) * 100)
+    Math.min(100, ((detailTarget?.level ?? 0) / 3.5) * 100)
   );
 
   const levelStatus = useMemo(() => {
-    const level = selectedRiver?.level ?? 0;
+    const level = detailTarget?.level ?? 0;
     if (level >= WATER_LEVEL_DANGER) {
       return { key: "danger", label: "NGUY HIEM", note: "Muc nuoc dang vuot nguong an toan." };
     }
@@ -435,9 +544,14 @@ function RiverMap() {
       return { key: "warning", label: "CANH BAO", note: "Muc nuoc dang cao, can theo doi sat." };
     }
     return { key: "normal", label: "AN TOAN", note: "Muc nuoc dang o muc binh thuong." };
-  }, [selectedRiver?.level]);
+  }, [detailTarget?.level]);
 
   const mapCenter = useMemo(() => {
+    if (selectedStation) {
+      const lat = Number(selectedStation.latitude);
+      const lng = Number(selectedStation.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
+    }
     if (!selectedRiver) return DEFAULT_CENTER;
     if (selectedRiver.positionReliable && selectedRiver.position?.length === 2) {
       return selectedRiver.position;
@@ -449,7 +563,86 @@ function RiverMap() {
       if (Number.isFinite(lat) && Number.isFinite(lng)) return [lat, lng];
     }
     return DEFAULT_CENTER;
-  }, [selectedRiver, mapStations]);
+  }, [selectedRiver, mapStations, selectedStation]);
+
+  const riverSelectOptions = useMemo(
+    () => riversData.map((r) => ({ value: Number(r.id), label: r.name })),
+    [riversData]
+  );
+
+  const stationSelectOptions = useMemo(() => {
+    const list =
+      selectedRiverFilterId != null
+        ? stationWithResolvedRiver.filter((s) => Number(s._resolvedRiverId) === Number(selectedRiverFilterId))
+        : stationWithResolvedRiver;
+    return list.map((s) => ({
+      value: Number(s.stationId),
+      label: `${s.stationName || `Trạm ${s.stationId}`}${s.riverName ? ` - ${s.riverName}` : ""}`,
+    }));
+  }, [selectedRiverFilterId, stationWithResolvedRiver]);
+
+  useEffect(() => {
+    if (selectedRiverFilterId != null) {
+      setSelectedId(Number(selectedRiverFilterId));
+    }
+  }, [selectedRiverFilterId]);
+
+  useEffect(() => {
+    if (!selectedStation) return;
+    if (selectedStation._resolvedRiverId != null) {
+      setSelectedId(Number(selectedStation._resolvedRiverId));
+      setSelectedRiverFilterId(Number(selectedStation._resolvedRiverId));
+    }
+  }, [selectedStation]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStationObservations() {
+      if (!selectedStationId) {
+        setStationLatestByCode({});
+        setStationHistoryRows([]);
+        return;
+      }
+
+      try {
+        const [latestRes, historyRes] = await Promise.all([
+          getLatestObservations(selectedStationId).catch(() => []),
+          getObservationHistory(selectedStationId, {
+            page: 0,
+            size: 120,
+            sort: "observedAt,desc",
+          }).catch(() => []),
+        ]);
+
+        if (cancelled) return;
+
+        const latestRows = toArray(latestRes).map(normalizeObservation);
+        const latestMap = {};
+        latestRows.forEach((row) => {
+          if (!row.parameterCode || !Number.isFinite(row.value)) return;
+          latestMap[row.parameterCode] = {
+            value: row.value,
+            observedAt: row.observedAt,
+          };
+        });
+        setStationLatestByCode(latestMap);
+
+        const historyRows = toArray(historyRes).map(normalizeObservation);
+        setStationHistoryRows(historyRows);
+      } catch {
+        if (!cancelled) {
+          setStationLatestByCode({});
+          setStationHistoryRows([]);
+        }
+      }
+    }
+
+    loadStationObservations();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStationId]);
 
   if (loading) {
     return (
@@ -515,6 +708,28 @@ function RiverMap() {
           />
         </div>
 
+        <div className="river-map-selectors">
+          <Select
+            allowClear
+            placeholder="Chọn sông"
+            className="river-map-select"
+            value={selectedRiverFilterId}
+            options={riverSelectOptions}
+            onChange={(value) => {
+              setSelectedRiverFilterId(value ?? null);
+              setSelectedStationId(null);
+            }}
+          />
+          <Select
+            allowClear
+            placeholder="Chọn trạm"
+            className="river-map-select"
+            value={selectedStationId}
+            options={stationSelectOptions}
+            onChange={(value) => setSelectedStationId(value ?? null)}
+          />
+        </div>
+
         <div className="river-map-layout">
           <div className="river-map-left">
             <div className="river-map-container">
@@ -536,7 +751,7 @@ function RiverMap() {
                     attribution="&copy; OpenStreetMap contributors"
                   />
 
-                  {displayedRivers
+                  {focusedRivers
                     .filter(
                       (river) =>
                         river.positionReliable &&
@@ -578,7 +793,7 @@ function RiverMap() {
                       );
                     })}
 
-                  {mapStations.map((s) => {
+                  {focusedStations.map((s) => {
                     const lat = Number(s.latitude);
                     const lng = Number(s.longitude);
                     const color = getStationMarkerColor(s);
@@ -639,15 +854,15 @@ function RiverMap() {
                   })}
                 </MapContainer>
 
-                {selectedRiver && (
+                {detailTarget && (
                   <div className="river-map-info-card">
-                    <div className="river-map-info-title">{selectedRiver.name}</div>
-                    <div className="river-map-info-row">{selectedRiver.region}</div>
+                    <div className="river-map-info-title">{detailTarget.title}</div>
+                    <div className="river-map-info-row">{detailTarget.subtitle}</div>
                     <div className="river-map-info-row">
-                      Mực nước: <strong>{(selectedRiver.level ?? 0).toFixed(2)} m</strong>
+                      Mực nước: <strong>{(detailTarget.level ?? 0).toFixed(2)} m</strong>
                     </div>
                     <div className="river-map-info-row">
-                      Nhiệt độ: {(selectedRiver.temperature ?? 0).toFixed(1)}°C · pH: {(selectedRiver.ph ?? 0).toFixed(2)}
+                      pH: {(detailTarget.ph ?? 0).toFixed(2)} · DO: {(detailTarget.doValue ?? 0).toFixed(2)} mg/L
                     </div>
                   </div>
                 )}
@@ -666,89 +881,62 @@ function RiverMap() {
           </div>
 
           <div className="river-map-right">
-            <div className="panel-header">
-              <h2 className="panel-title">Rivers List</h2>
-            </div>
-
-            <div className="panel-body">
-              <div className="river-list">
-                {displayedRivers.length === 0 ? (
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="No rivers found"
-                  />
-                ) : (
-                  displayedRivers.map((river) => (
-                    <button
-                      key={river.id}
-                      type="button"
-                      className={
-                        river.id === effectiveSelectedId
-                          ? "river-item river-item-active"
-                          : "river-item"
-                      }
-                      onClick={() => setSelectedId(river.id)}
-                    >
-                      <div className="river-item-main">
-                        <div className="river-item-title">
-                          <EnvironmentOutlined />
-                          <span>{river.name}</span>
-                        </div>
-                        <span className="river-item-country">{river.country}</span>
-                      </div>
-
-                      <Tag color="blue" className="river-item-level">
-                        {(effectiveSelectedId === river.id && selectedDetail
-                          ? selectedDetail.level
-                          : river.level).toFixed(2)}{" "}
-                        m
-                      </Tag>
-                    </button>
-                  ))
-                )}
+            <div className="river-branches-card">
+              <div className="panel-header">
+                <h2 className="panel-title">Chọn sông</h2>
+              </div>
+              <div className="panel-body">
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Chọn sông"
+                  className="river-map-select river-map-select-full"
+                  value={selectedRiverFilterId}
+                  options={riverSelectOptions}
+                  onChange={(value) => {
+                    setSelectedRiverFilterId(value ?? null);
+                    setSelectedStationId(null);
+                  }}
+                />
               </div>
             </div>
 
-            {selectedMajorName && (
-              <div className="river-branches-card">
-                <div className="panel-header">
-                  <h2 className="panel-title">
-                    Nhánh sông liên quan – {selectedMajorName}
-                  </h2>
-                </div>
-                <div className="river-branches-list">
-                  {relatedBranches.length === 0 ? (
-                    <span className="river-branches-empty">Chưa có nhánh</span>
-                  ) : (
-                    relatedBranches.map((branch) => (
-                      <button
-                        key={branch.id}
-                        type="button"
-                        className={
-                          branch.id === effectiveSelectedId
-                            ? "river-branch-item river-branch-item-active"
-                            : "river-branch-item"
-                        }
-                        onClick={() => setSelectedId(branch.id)}
-                      >
-                        <span className="river-branch-name">{branch.name}</span>
-                        <span className="river-branch-meta">
-                          {branch.country} ·{" "}
-                          {(effectiveSelectedId === branch.id && selectedDetail
-                            ? selectedDetail.level
-                            : branch.level).toFixed(2)}{" "}
-                          m
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
+            <div className="river-branches-card">
+              <div className="panel-header">
+                <h2 className="panel-title">
+                  Chọn trạm {focusedRiverId != null ? `- ${selectedRiver?.name || ""}` : ""}
+                </h2>
               </div>
-            )}
+              <div className="panel-body">
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  disabled={focusedRiverId == null}
+                  placeholder={focusedRiverId == null ? "Vui lòng chọn sông trước" : "Chọn trạm"}
+                  className="river-map-select river-map-select-full"
+                  value={selectedStationId}
+                  options={stationSelectOptions}
+                  onChange={(value) => setSelectedStationId(value ?? null)}
+                />
+
+                {selectedStation ? (
+                  <div className="river-map-selected-station">
+                    <strong>{selectedStation.stationName || `Trạm ${selectedStation.stationId}`}</strong>
+                    <div>
+                      {selectedStation.riverName || "-"} ·{" "}
+                      {Number.isFinite(effectiveWaterLevel(selectedStation))
+                        ? effectiveWaterLevel(selectedStation).toFixed(2)
+                        : "0.00"}{" "}
+                      m
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
 
-        {selectedRiver && (
+        {detailTarget && (
           <div className="river-detail-card">
             {detailLoading ? (
               <div style={{ padding: 24, textAlign: "center" }}>
@@ -758,9 +946,9 @@ function RiverMap() {
               <>
                 <div className="river-detail-top">
                   <div>
-                    <div className="river-detail-title">{selectedRiver.name}</div>
+                    <div className="river-detail-title">{detailTarget.title}</div>
                     <div className="river-detail-subtitle">
-                      {selectedRiver.region}
+                      {detailTarget.subtitle}
                     </div>
                   </div>
                   <div className="river-detail-actions">
@@ -769,7 +957,7 @@ function RiverMap() {
                       className="river-detail-more"
                       onClick={() =>
                         navigate(
-                          `/quality?river=${encodeURIComponent(selectedRiver.name)}`
+                          `/quality?river=${encodeURIComponent(detailTarget.riverName || "")}`
                         )
                       }
                     >
@@ -788,7 +976,7 @@ function RiverMap() {
                   <div className="river-detail-level-head">
                     <div className="river-detail-level-label">Water Level</div>
                     <div className={`river-detail-level-value river-detail-level-value-${levelStatus.key}`}>
-                      {(selectedRiver.level ?? 0).toFixed(2)}m
+                      {(detailTarget.level ?? 0).toFixed(2)}m
                     </div>
                   </div>
 
@@ -838,32 +1026,32 @@ function RiverMap() {
 
                 <div className="river-detail-metrics">
                   <div className="river-detail-metric">
-                    <div className="river-detail-metric-label">Temperature</div>
+                    <div className="river-detail-metric-label">Độ pH (PH)</div>
                     <div className="river-detail-metric-value">
-                      {(selectedRiver.temperature ?? 0).toFixed(1)}°C
+                      {(detailTarget.ph ?? 0).toFixed(2)}
                     </div>
                   </div>
                   <div className="river-detail-metric">
-                    <div className="river-detail-metric-label">pH Level</div>
+                    <div className="river-detail-metric-label">Oxy hoà tan (DO)</div>
                     <div className="river-detail-metric-value">
-                      {(selectedRiver.ph ?? 0).toFixed(2)}
+                      {(detailTarget.doValue ?? 0).toFixed(2)} mg/L
                     </div>
                   </div>
                   <div className="river-detail-metric">
-                    <div className="river-detail-metric-label">Turbidity</div>
+                    <div className="river-detail-metric-label">Độ dẫn điện/độ mặn (COND)</div>
                     <div className="river-detail-metric-value">
-                      {(selectedRiver.turbidity ?? 0).toFixed(1)} NTU
+                      {(detailTarget.cond ?? 0).toFixed(2)} µS/cm
                     </div>
                   </div>
                   <div className="river-detail-metric">
-                    <div className="river-detail-metric-label">Flow Rate</div>
+                    <div className="river-detail-metric-label">Vận tốc dòng chảy (FV)</div>
                     <div className="river-detail-metric-value">
-                      {(selectedRiver.flow ?? 0).toFixed(2)} m³/s
+                      {(detailTarget.fv ?? 0).toFixed(2)} m/s
                     </div>
                   </div>
                 </div>
 
-                <div className="river-detail-updated">Updated: {updatedAt}</div>
+                <div className="river-detail-updated">Updated: {detailTarget.updatedAt || updatedAt}</div>
               </>
             )}
           </div>
